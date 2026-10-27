@@ -1,0 +1,1166 @@
+{
+  "extName": {
+    "message": "TabVault",
+    "description": "Extension name; also the popup heading and window title."
+  },
+  "extDescription": {
+    "message": "Back up and move tabs, tab groups and bookmarks between Chromium browsers and Firefox.",
+    "description": "Extension description shown in the browser extension store and manager."
+  },
+  "extActionTitle": {
+    "message": "TabVault",
+    "description": "Tooltip of the toolbar button."
+  },
+  "lazyLoadButton": {
+    "message": "Load page",
+    "description": "Button on the placeholder page of a restored tab; loads the real page."
+  },
+  "lazyInvalidUrl": {
+    "message": "This placeholder has no valid address to open.",
+    "description": "Error on the placeholder page when the saved address cannot be opened."
+  },
+  "lazyHint": {
+    "message": "This tab was restored without loading. It opens when you switch to it.",
+    "description": "Hint on the placeholder page of a restored tab."
+  },
+  "browserDetecting": {
+    "message": "Detecting browser…",
+    "description": "Badge text in the header while the browser name is being detected."
+  },
+  "unknownBrowser": {
+    "message": "Unknown browser",
+    "description": "Badge text when the browser could not be identified."
+  },
+  "openInTab": {
+    "message": "Open in a tab",
+    "description": "Tooltip and accessible name of the header button that opens the extension page in a full browser tab."
+  },
+  "themeToLight": {
+    "message": "Switch to light theme",
+    "description": "Accessible name of the theme button while the dark theme is active."
+  },
+  "themeToDark": {
+    "message": "Switch to dark theme",
+    "description": "Accessible name of the theme button while the light theme is active."
+  },
+  "tabsAriaLabel": {
+    "message": "TabVault sections",
+    "description": "Accessible name of the tab list that switches between Export, Import and Backups."
+  },
+  "tabExport": {
+    "message": "Export",
+    "description": "Name of the first tab: saving a backup file."
+  },
+  "tabImport": {
+    "message": "Import",
+    "description": "Name of the second tab: restoring from a backup file."
+  },
+  "tabBackups": {
+    "message": "Backups",
+    "description": "Name of the third tab: automatic backups and snapshots."
+  },
+  "openTabFailed": {
+    "message": "Couldn't open the tab view: $DETAIL$",
+    "description": "Error shown when the full-tab view could not be opened. $DETAIL$ is the technical reason.",
+    "placeholders": {
+      "detail": {
+        "content": "$1",
+        "example": "detail"
+      }
+    }
+  },
+  "errorWorkerUnavailable": {
+    "message": "The extension background isn't responding. Try again in a moment.",
+    "description": "Error shown when the extension's background process cannot be reached."
+  },
+  "errorUnknown": {
+    "message": "Unknown error",
+    "description": "Fallback text when an error has no message."
+  },
+  "exportTitle": {
+    "message": "Export backup",
+    "description": "Heading of the Export tab."
+  },
+  "exportIntro": {
+    "message": "Save your current browser state to a portable JSON file.",
+    "description": "Introduction under the Export heading."
+  },
+  "exportContentLabel": {
+    "message": "Content to save",
+    "description": "Label of the group of checkboxes choosing what to export."
+  },
+  "exportTabsPrimary": {
+    "message": "Tabs & groups",
+    "description": "Checkbox title: export open tabs and tab groups."
+  },
+  "exportTabsSecondary": {
+    "message": "All open tabs, with their grouping preserved",
+    "description": "Explanation under the Tabs & groups checkbox."
+  },
+  "exportBookmarksPrimary": {
+    "message": "Bookmarks",
+    "description": "Checkbox title: export bookmarks."
+  },
+  "exportBookmarksSecondary": {
+    "message": "The complete bookmark folder tree",
+    "description": "Explanation under the Bookmarks checkbox."
+  },
+  "exportNothingSelected": {
+    "message": "Pick at least one kind of content to export.",
+    "description": "Warning shown when neither tabs nor bookmarks is selected for export."
+  },
+  "exportFiltersLabel": {
+    "message": "Filters",
+    "description": "Heading of the export filter card."
+  },
+  "exportDomainLabel": {
+    "message": "Domain filter",
+    "description": "Label of the text field listing domains to keep."
+  },
+  "exportDomainPlaceholder": {
+    "message": "github.com, wikipedia.org",
+    "description": "Example text inside the domain filter field."
+  },
+  "exportDomainHint": {
+    "message": "Comma-separated. Leave empty to export every tab.",
+    "description": "Help text under the domain filter field."
+  },
+  "exportApplyToBookmarks": {
+    "message": "Apply domain filter to bookmarks too",
+    "description": "Checkbox: also filter bookmarks by the domain list."
+  },
+  "exportSkipInternal": {
+    "message": "Skip browser and extension pages",
+    "description": "Checkbox: leave out pages such as chrome:// or about: addresses and extension pages."
+  },
+  "exportOptionsSummary": {
+    "message": "Options",
+    "description": "Title of the collapsible card with extra export options."
+  },
+  "exportIncludeFavicons": {
+    "message": "Include favicons (larger file)",
+    "description": "Checkbox: store site icons in the backup, which makes the file larger."
+  },
+  "exportUnwrapPlaceholders": {
+    "message": "Recover real addresses of suspended tabs",
+    "description": "Checkbox: for tabs suspended by tab-suspender extensions, save the original page address."
+  },
+  "exportIncludeWindowLayout": {
+    "message": "Save window size and position",
+    "description": "Checkbox: store window size and position in the backup."
+  },
+  "exportButton": {
+    "message": "Export data",
+    "description": "Primary button on the Export tab."
+  },
+  "statusExporting": {
+    "message": "Exporting…",
+    "description": "Footer status while an export is running."
+  },
+  "exportCancelled": {
+    "message": "Export cancelled.",
+    "description": "Neutral message when the user closed the Save dialog without saving."
+  },
+  "exportDone": {
+    "message": "Export complete. Tabs: $TABS$, windows: $WINDOWS$.",
+    "description": "Success message after exporting tabs only.",
+    "placeholders": {
+      "tabs": {
+        "content": "$1",
+        "example": "tabs"
+      },
+      "windows": {
+        "content": "$2",
+        "example": "windows"
+      }
+    }
+  },
+  "exportDoneWithBookmarks": {
+    "message": "Export complete. Tabs: $TABS$, windows: $WINDOWS$, bookmarks: $BOOKMARKS$.",
+    "description": "Success message after exporting tabs and bookmarks.",
+    "placeholders": {
+      "tabs": {
+        "content": "$1",
+        "example": "tabs"
+      },
+      "windows": {
+        "content": "$2",
+        "example": "windows"
+      },
+      "bookmarks": {
+        "content": "$3",
+        "example": "bookmarks"
+      }
+    }
+  },
+  "exportNoTabsMatched": {
+    "message": "No tabs matched your filters.",
+    "description": "Warning when tabs were requested but the filters excluded all of them."
+  },
+  "exportNoTabsButBookmarks_one": {
+    "message": "No tabs matched your filters. Exported $COUNT$ bookmark.",
+    "description": "Warning (singular): no tabs matched, but one bookmark was exported.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "exportNoTabsButBookmarks_other": {
+    "message": "No tabs matched your filters. Exported $COUNT$ bookmarks.",
+    "description": "Warning (plural): no tabs matched, but several bookmarks were exported.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "exportBookmarksDone_one": {
+    "message": "Exported $COUNT$ bookmark.",
+    "description": "Success message (singular) after a bookmarks-only export.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "exportBookmarksDone_other": {
+    "message": "Exported $COUNT$ bookmarks.",
+    "description": "Success message (plural) after a bookmarks-only export.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "exportNoBookmarks": {
+    "message": "No bookmarks were found to export.",
+    "description": "Warning when a bookmarks-only export found no bookmarks."
+  },
+  "exportFailed": {
+    "message": "Export failed: $DETAIL$",
+    "description": "Error message when export fails. $DETAIL$ is the technical reason.",
+    "placeholders": {
+      "detail": {
+        "content": "$1",
+        "example": "detail"
+      }
+    }
+  },
+  "importTitle": {
+    "message": "Import backup",
+    "description": "Heading of the Import tab."
+  },
+  "importIntro": {
+    "message": "Restore tabs, groups and bookmarks from a backup file.",
+    "description": "Introduction under the Import heading."
+  },
+  "importChooseFile": {
+    "message": "Choose a backup file",
+    "description": "Main text of the file chooser box."
+  },
+  "importFileSub": {
+    "message": "Backups from this extension, OneTab, Session Buddy, or bookmark HTML/JSON",
+    "description": "Smaller text in the file chooser box listing supported file types."
+  },
+  "fileUnreadable": {
+    "message": "That file could not be read. Try selecting it again.",
+    "description": "Error when the chosen file cannot be read."
+  },
+  "fileInvalid": {
+    "message": "That file can't be restored: $DETAIL$",
+    "description": "Error when the chosen file is not a recognised backup. $DETAIL$ is the reason.",
+    "placeholders": {
+      "detail": {
+        "content": "$1",
+        "example": "detail"
+      }
+    }
+  },
+  "fileUnexpected": {
+    "message": "Something went wrong while reading that file.",
+    "description": "Error for an unexpected failure while reading a file."
+  },
+  "fileEmpty": {
+    "message": "That backup contains no tabs and no bookmarks.",
+    "description": "Warning when a backup file has nothing to restore."
+  },
+  "fileLoaded": {
+    "message": "Loaded $NAME$.",
+    "description": "Confirmation that a backup file was read. $NAME$ is the file name.",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "name"
+      }
+    }
+  },
+  "fileLoadedSnapshot": {
+    "message": "Loaded the snapshot from $DATE$.",
+    "description": "Confirmation that a saved snapshot was loaded for restoring. $DATE$ is its date and time.",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "date"
+      }
+    }
+  },
+  "importBusy": {
+    "message": "A restore is already running.",
+    "description": "Warning when the user tries to load another backup during a restore."
+  },
+  "formatNative": {
+    "message": "TabVault backup",
+    "description": "Detected file format name."
+  },
+  "formatOnetab": {
+    "message": "OneTab export",
+    "description": "Detected file format name."
+  },
+  "formatSessionBuddy": {
+    "message": "Session Buddy export",
+    "description": "Detected file format name."
+  },
+  "formatNetscapeHtml": {
+    "message": "Bookmarks HTML export",
+    "description": "Detected file format name for bookmark HTML files."
+  },
+  "formatFirefoxBookmarks": {
+    "message": "Firefox bookmarks backup",
+    "description": "Detected file format name."
+  },
+  "formatUrlList": {
+    "message": "List of URLs",
+    "description": "Detected file format name for a plain list of addresses."
+  },
+  "formatSnapshot": {
+    "message": "Automatic snapshot",
+    "description": "Source name shown when a snapshot saved in this browser is loaded."
+  },
+  "summaryTitle": {
+    "message": "Backup contents",
+    "description": "Heading of the card summarising the loaded backup."
+  },
+  "summaryFormat": {
+    "message": "Format: $FORMAT$",
+    "description": "Line naming the detected file format.",
+    "placeholders": {
+      "format": {
+        "content": "$1",
+        "example": "format"
+      }
+    }
+  },
+  "summaryDate": {
+    "message": "Backed up: $DATE$",
+    "description": "Line with the date the backup was made.",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "date"
+      }
+    }
+  },
+  "labelTabs": {
+    "message": "Tabs",
+    "description": "Label next to a number of tabs."
+  },
+  "labelWindows": {
+    "message": "Windows",
+    "description": "Label next to a number of windows."
+  },
+  "labelGroups": {
+    "message": "Groups",
+    "description": "Label next to a number of tab groups."
+  },
+  "labelBookmarks": {
+    "message": "Bookmarks",
+    "description": "Label next to a number of bookmarks."
+  },
+  "warnInvalidEntries_one": {
+    "message": "$COUNT$ invalid entry was ignored.",
+    "description": "Warning (singular) about a damaged entry in the backup.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "warnInvalidEntries_other": {
+    "message": "$COUNT$ invalid entries were ignored.",
+    "description": "Warning (plural) about damaged entries in the backup.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "warnNewerSchema": {
+    "message": "This backup was made by a newer version of TabVault. Some details may be missing.",
+    "description": "Warning when the file comes from a newer extension version."
+  },
+  "warnTruncated": {
+    "message": "This file had more tabs than can be imported at once, so only some were kept.",
+    "description": "Warning when a converted file was cut because it had too many tabs."
+  },
+  "previewTitle": {
+    "message": "Windows and groups",
+    "description": "Heading of the card where the user picks which windows and groups to restore."
+  },
+  "previewSelectAll": {
+    "message": "Select all",
+    "description": "Button: tick every window and group."
+  },
+  "previewSelectNone": {
+    "message": "Select none",
+    "description": "Button: untick every window and group."
+  },
+  "previewWindow": {
+    "message": "Window $NUMBER$",
+    "description": "Name of a window in the preview list.",
+    "placeholders": {
+      "number": {
+        "content": "$1",
+        "example": "number"
+      }
+    }
+  },
+  "previewUngrouped": {
+    "message": "Ungrouped tabs",
+    "description": "Name of the row for tabs that are not in a group."
+  },
+  "previewUntitledGroup": {
+    "message": "Untitled group",
+    "description": "Name for a tab group without a title."
+  },
+  "previewWindowLabel_one": {
+    "message": "Window $NUMBER$, $COUNT$ tab",
+    "description": "Accessible name (singular) of a window checkbox.",
+    "placeholders": {
+      "number": {
+        "content": "$1",
+        "example": "number"
+      },
+      "count": {
+        "content": "$2",
+        "example": "12"
+      }
+    }
+  },
+  "previewWindowLabel_other": {
+    "message": "Window $NUMBER$, $COUNT$ tabs",
+    "description": "Accessible name (plural) of a window checkbox.",
+    "placeholders": {
+      "number": {
+        "content": "$1",
+        "example": "number"
+      },
+      "count": {
+        "content": "$2",
+        "example": "12"
+      }
+    }
+  },
+  "previewUngroupedLabel_one": {
+    "message": "Ungrouped tabs in window $NUMBER$, $COUNT$ tab",
+    "description": "Accessible name (singular) of the ungrouped-tabs checkbox.",
+    "placeholders": {
+      "number": {
+        "content": "$1",
+        "example": "number"
+      },
+      "count": {
+        "content": "$2",
+        "example": "12"
+      }
+    }
+  },
+  "previewUngroupedLabel_other": {
+    "message": "Ungrouped tabs in window $NUMBER$, $COUNT$ tabs",
+    "description": "Accessible name (plural) of the ungrouped-tabs checkbox.",
+    "placeholders": {
+      "number": {
+        "content": "$1",
+        "example": "number"
+      },
+      "count": {
+        "content": "$2",
+        "example": "12"
+      }
+    }
+  },
+  "previewGroupLabel_one": {
+    "message": "Group $TITLE$ in window $NUMBER$, $COUNT$ tab",
+    "description": "Accessible name (singular) of a group checkbox.",
+    "placeholders": {
+      "title": {
+        "content": "$1",
+        "example": "title"
+      },
+      "number": {
+        "content": "$2",
+        "example": "number"
+      },
+      "count": {
+        "content": "$3",
+        "example": "12"
+      }
+    }
+  },
+  "previewGroupLabel_other": {
+    "message": "Group $TITLE$ in window $NUMBER$, $COUNT$ tabs",
+    "description": "Accessible name (plural) of a group checkbox.",
+    "placeholders": {
+      "title": {
+        "content": "$1",
+        "example": "title"
+      },
+      "number": {
+        "content": "$2",
+        "example": "number"
+      },
+      "count": {
+        "content": "$3",
+        "example": "12"
+      }
+    }
+  },
+  "previewSelected": {
+    "message": "Selected tabs: $COUNT$",
+    "description": "Total of ticked tabs under the preview list.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "importWhatLabel": {
+    "message": "What to restore",
+    "description": "Heading of the card choosing between tabs and bookmarks."
+  },
+  "importTabsOption": {
+    "message": "Tabs",
+    "description": "Checkbox: restore tabs."
+  },
+  "importBookmarksOption": {
+    "message": "Bookmarks",
+    "description": "Checkbox: restore bookmarks."
+  },
+  "importTabOptionsLabel": {
+    "message": "Tab options",
+    "description": "Heading of the card with tab restore options."
+  },
+  "importLoadingLabel": {
+    "message": "Loading",
+    "description": "Label of the menu choosing how restored tabs load."
+  },
+  "loadDiscard": {
+    "message": "Don't load until opened",
+    "description": "Menu choice: tabs are created but not loaded until the user selects them."
+  },
+  "loadLazy": {
+    "message": "Placeholder page (lightest)",
+    "description": "Menu choice: tabs open a lightweight placeholder page first."
+  },
+  "loadLoad": {
+    "message": "Load everything",
+    "description": "Menu choice: all tabs load immediately."
+  },
+  "importSkipOpen": {
+    "message": "Skip tabs that are already open",
+    "description": "Checkbox: do not reopen tabs that are already open."
+  },
+  "importSkipBlank": {
+    "message": "Skip empty new-tab pages",
+    "description": "Checkbox: ignore blank new-tab pages in the backup."
+  },
+  "importRestoreLayout": {
+    "message": "Restore window size and position",
+    "description": "Checkbox: restore the saved window geometry."
+  },
+  "importNoTabGroups": {
+    "message": "This browser has no tab groups, so each group opens in its own window.",
+    "description": "Hint shown in browsers without tab group support."
+  },
+  "importBookmarkOptionsLabel": {
+    "message": "Bookmark options",
+    "description": "Heading of the group of bookmark restore options."
+  },
+  "bmMerge": {
+    "message": "Merge",
+    "description": "Radio choice: add the backup's bookmarks to the existing ones."
+  },
+  "bmMergeHint": {
+    "message": "Merge keeps what you have and adds the backup on top.",
+    "description": "Explanation of the Merge choice."
+  },
+  "bmFolder": {
+    "message": "Into a dated folder",
+    "description": "Radio choice: put the restored bookmarks in a new folder named with the date."
+  },
+  "bmReplace": {
+    "message": "Replace existing",
+    "description": "Radio choice: delete current bookmarks and restore the backup."
+  },
+  "importSkipDuplicates": {
+    "message": "Skip bookmarks that already exist",
+    "description": "Checkbox: do not add bookmarks that are already present."
+  },
+  "importNoBookmarksApi": {
+    "message": "This browser has no bookmarks API.",
+    "description": "Message shown when the browser cannot restore bookmarks."
+  },
+  "importManyTabs": {
+    "message": "You're about to open $COUNT$ tabs.",
+    "description": "Notice shown before restoring a large number of tabs.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "replaceConfirmText": {
+    "message": "This deletes your current bookmarks before restoring. A safety snapshot is saved under Backups first.",
+    "description": "Warning shown before the Replace option runs."
+  },
+  "replaceConfirmYes": {
+    "message": "Delete and restore",
+    "description": "Danger button confirming the Replace option."
+  },
+  "replaceConfirmNo": {
+    "message": "Go back",
+    "description": "Button cancelling the Replace confirmation."
+  },
+  "importStart": {
+    "message": "Start restore",
+    "description": "Primary button on the Import tab."
+  },
+  "importCancel": {
+    "message": "Cancel restore",
+    "description": "Button stopping a running restore."
+  },
+  "importStartFailed": {
+    "message": "Couldn't start the restore: $DETAIL$",
+    "description": "Error when a restore could not be started. $DETAIL$ is the reason.",
+    "placeholders": {
+      "detail": {
+        "content": "$1",
+        "example": "detail"
+      }
+    }
+  },
+  "progressLabel": {
+    "message": "Restore progress",
+    "description": "Accessible name of the progress bar."
+  },
+  "statusRestoring": {
+    "message": "Restoring…",
+    "description": "Footer status while a restore is running."
+  },
+  "statusCancelling": {
+    "message": "Cancelling…",
+    "description": "Footer status while a restore is being cancelled."
+  },
+  "phaseStarting": {
+    "message": "Starting…",
+    "description": "Progress text at the beginning of a restore."
+  },
+  "phaseBookmarks": {
+    "message": "Restoring bookmarks…",
+    "description": "Progress text while bookmarks are restored."
+  },
+  "phaseTabs": {
+    "message": "Restoring tabs…",
+    "description": "Progress text while tabs are restored."
+  },
+  "phaseDone": {
+    "message": "Finishing…",
+    "description": "Progress text at the end of a restore."
+  },
+  "statusImportDone": {
+    "message": "Restore complete. Tabs: $TABS$, bookmarks: $BOOKMARKS$.",
+    "description": "Success message after a restore.",
+    "placeholders": {
+      "tabs": {
+        "content": "$1",
+        "example": "tabs"
+      },
+      "bookmarks": {
+        "content": "$2",
+        "example": "bookmarks"
+      }
+    }
+  },
+  "statusImportDoneIssues": {
+    "message": "Restore finished, but some items failed. Tabs: $TABS$, bookmarks: $BOOKMARKS$.",
+    "description": "Warning after a restore in which some items failed.",
+    "placeholders": {
+      "tabs": {
+        "content": "$1",
+        "example": "tabs"
+      },
+      "bookmarks": {
+        "content": "$2",
+        "example": "bookmarks"
+      }
+    }
+  },
+  "statusImportCancelled": {
+    "message": "Restore cancelled. Tabs restored: $TABS$, bookmarks added: $BOOKMARKS$.",
+    "description": "Message after the user cancelled a restore.",
+    "placeholders": {
+      "tabs": {
+        "content": "$1",
+        "example": "tabs"
+      },
+      "bookmarks": {
+        "content": "$2",
+        "example": "bookmarks"
+      }
+    }
+  },
+  "statusImportFailed": {
+    "message": "Restore failed: $DETAIL$",
+    "description": "Error after a restore failed. $DETAIL$ is the reason.",
+    "placeholders": {
+      "detail": {
+        "content": "$1",
+        "example": "detail"
+      }
+    }
+  },
+  "resultsTitle": {
+    "message": "Restore results",
+    "description": "Heading of the card describing the outcome of a restore."
+  },
+  "resultsDismiss": {
+    "message": "Dismiss",
+    "description": "Button hiding the results card."
+  },
+  "resultsErrorsLabel": {
+    "message": "Problems",
+    "description": "Heading above the list of problems from a restore."
+  },
+  "resultTabs": {
+    "message": "Tabs restored",
+    "description": "Result row label."
+  },
+  "resultWindows": {
+    "message": "Windows created",
+    "description": "Result row label."
+  },
+  "resultGroups": {
+    "message": "Groups created",
+    "description": "Result row label."
+  },
+  "resultBookmarks": {
+    "message": "Bookmarks added",
+    "description": "Result row label."
+  },
+  "resultTabsSkipped": {
+    "message": "Tabs skipped",
+    "description": "Result row label."
+  },
+  "resultBookmarksSkipped": {
+    "message": "Bookmarks skipped",
+    "description": "Result row label."
+  },
+  "resultTabsFailed": {
+    "message": "Tabs failed",
+    "description": "Result row label."
+  },
+  "resultBookmarksFailed": {
+    "message": "Bookmarks failed",
+    "description": "Result row label."
+  },
+  "failuresSummary_one": {
+    "message": "$COUNT$ item couldn't be restored",
+    "description": "Title (singular) of the expandable list of failed items.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "failuresSummary_other": {
+    "message": "$COUNT$ items couldn't be restored",
+    "description": "Title (plural) of the expandable list of failed items.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "failuresCopy": {
+    "message": "Copy list",
+    "description": "Button copying the list of failed items to the clipboard."
+  },
+  "failuresCopied": {
+    "message": "List copied.",
+    "description": "Confirmation after copying the failed items."
+  },
+  "copyFailed": {
+    "message": "Couldn't copy: $DETAIL$",
+    "description": "Error when copying to the clipboard fails.",
+    "placeholders": {
+      "detail": {
+        "content": "$1",
+        "example": "detail"
+      }
+    }
+  },
+  "failureKindTab": {
+    "message": "Tab",
+    "description": "Kind of a failed item."
+  },
+  "failureKindGroup": {
+    "message": "Group",
+    "description": "Kind of a failed item."
+  },
+  "failureKindBookmark": {
+    "message": "Bookmark",
+    "description": "Kind of a failed item."
+  },
+  "failureInternalPage": {
+    "message": "Browser page that can't be reopened here",
+    "description": "Reason a tab could not be restored."
+  },
+  "failureUnsafeScheme": {
+    "message": "Address type that isn't safe to open",
+    "description": "Reason a tab could not be restored."
+  },
+  "failureFileUrlBlocked": {
+    "message": "Local file address that this browser blocks",
+    "description": "Reason a tab could not be restored."
+  },
+  "failureInvalidUrl": {
+    "message": "Not a valid address",
+    "description": "Reason a tab could not be restored."
+  },
+  "failureEmptyUrl": {
+    "message": "Empty address",
+    "description": "Reason a tab could not be restored."
+  },
+  "failureUnsupportedUrl": {
+    "message": "Address this browser doesn't support",
+    "description": "Reason a tab could not be restored."
+  },
+  "failureWindowCreateFailed": {
+    "message": "Couldn't create a window for this tab",
+    "description": "Reason a tab could not be restored."
+  },
+  "backupsTitle": {
+    "message": "Backups",
+    "description": "Heading of the Backups tab."
+  },
+  "backupsIntro": {
+    "message": "Keep copies of your tabs and bookmarks inside this browser.",
+    "description": "Introduction under the Backups heading."
+  },
+  "autoTitle": {
+    "message": "Automatic backups",
+    "description": "Heading of the card with scheduled backup settings."
+  },
+  "autoEnable": {
+    "message": "Back up automatically",
+    "description": "Checkbox turning scheduled backups on."
+  },
+  "autoFrequencyLabel": {
+    "message": "How often",
+    "description": "Label of the menu choosing the backup interval."
+  },
+  "freqHourly": {
+    "message": "Every hour",
+    "description": "Menu choice."
+  },
+  "freqDaily": {
+    "message": "Every day",
+    "description": "Menu choice."
+  },
+  "freqWeekly": {
+    "message": "Every week",
+    "description": "Menu choice."
+  },
+  "autoKeepLabel": {
+    "message": "Snapshots to keep",
+    "description": "Label of the number field for how many snapshots to keep."
+  },
+  "autoKeepHint": {
+    "message": "Between $MIN$ and $MAX$.",
+    "description": "Help text under the snapshots-to-keep field.",
+    "placeholders": {
+      "min": {
+        "content": "$1",
+        "example": "min"
+      },
+      "max": {
+        "content": "$2",
+        "example": "max"
+      }
+    }
+  },
+  "autoKeepInvalid": {
+    "message": "Enter a whole number between $MIN$ and $MAX$.",
+    "description": "Error when the number of snapshots to keep is invalid.",
+    "placeholders": {
+      "min": {
+        "content": "$1",
+        "example": "min"
+      },
+      "max": {
+        "content": "$2",
+        "example": "max"
+      }
+    }
+  },
+  "autoIncludeBookmarks": {
+    "message": "Include bookmarks",
+    "description": "Checkbox: include bookmarks in automatic backups."
+  },
+  "autoUnavailable": {
+    "message": "Scheduled backups aren't available in this browser.",
+    "description": "Message shown when the browser has no alarms support."
+  },
+  "autoSave": {
+    "message": "Save settings",
+    "description": "Button saving the automatic backup settings."
+  },
+  "autoSaved": {
+    "message": "Settings saved.",
+    "description": "Confirmation after saving settings."
+  },
+  "autoSaveFailed": {
+    "message": "Couldn't save settings: $DETAIL$",
+    "description": "Error when settings cannot be saved.",
+    "placeholders": {
+      "detail": {
+        "content": "$1",
+        "example": "detail"
+      }
+    }
+  },
+  "lastRunNever": {
+    "message": "No automatic backup has run yet.",
+    "description": "Status line before any scheduled backup happened."
+  },
+  "lastRunOk": {
+    "message": "Last backup: $DATE$",
+    "description": "Status line with the date of the last successful scheduled backup.",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "date"
+      }
+    }
+  },
+  "lastRunFailed": {
+    "message": "Last automatic backup failed: $DETAIL$",
+    "description": "Status line when the last scheduled backup failed.",
+    "placeholders": {
+      "detail": {
+        "content": "$1",
+        "example": "detail"
+      }
+    }
+  },
+  "lastRunSkipped": {
+    "message": "Skipped on $DATE$ — nothing changed.",
+    "description": "Status line when the last scheduled backup was skipped because nothing changed.",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "date"
+      }
+    }
+  },
+  "snapshotsTitle": {
+    "message": "Saved snapshots",
+    "description": "Heading of the snapshot list card."
+  },
+  "backupNow": {
+    "message": "Back up now",
+    "description": "Button creating a snapshot immediately."
+  },
+  "backupNowWorking": {
+    "message": "Saving backup…",
+    "description": "Message while a snapshot is being created."
+  },
+  "backupNowDone": {
+    "message": "Backup saved.",
+    "description": "Confirmation after creating a snapshot."
+  },
+  "backupNowFailed": {
+    "message": "Backup failed: $DETAIL$",
+    "description": "Error when a snapshot cannot be created.",
+    "placeholders": {
+      "detail": {
+        "content": "$1",
+        "example": "detail"
+      }
+    }
+  },
+  "snapshotsEmpty": {
+    "message": "No snapshots yet. Use “Back up now” to create one.",
+    "description": "Empty state of the snapshot list."
+  },
+  "snapshotsNote": {
+    "message": "Snapshots are stored in this browser only.",
+    "description": "Note under the snapshot list."
+  },
+  "snapshotsLoadFailed": {
+    "message": "Couldn't load snapshots: $DETAIL$",
+    "description": "Error when the snapshot list cannot be loaded.",
+    "placeholders": {
+      "detail": {
+        "content": "$1",
+        "example": "detail"
+      }
+    }
+  },
+  "reasonScheduled": {
+    "message": "Scheduled",
+    "description": "Badge: snapshot made by the schedule."
+  },
+  "reasonManual": {
+    "message": "Manual",
+    "description": "Badge: snapshot made with Back up now."
+  },
+  "reasonPreReplace": {
+    "message": "Before replace",
+    "description": "Badge: safety snapshot taken before replacing bookmarks."
+  },
+  "reasonPreImport": {
+    "message": "Before import",
+    "description": "Badge: safety snapshot taken before an import."
+  },
+  "snapshotRestore": {
+    "message": "Restore",
+    "description": "Button loading a snapshot into the Import tab."
+  },
+  "snapshotDownload": {
+    "message": "Download",
+    "description": "Button saving a snapshot as a file."
+  },
+  "snapshotDelete": {
+    "message": "Delete",
+    "description": "Button deleting a snapshot."
+  },
+  "snapshotConfirmDelete": {
+    "message": "Confirm?",
+    "description": "Text of the delete button after the first click; a second click deletes."
+  },
+  "snapshotRestoreLabel": {
+    "message": "Restore the snapshot from $DATE$",
+    "description": "Accessible name of a snapshot's Restore button.",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "date"
+      }
+    }
+  },
+  "snapshotDownloadLabel": {
+    "message": "Download the snapshot from $DATE$",
+    "description": "Accessible name of a snapshot's Download button.",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "date"
+      }
+    }
+  },
+  "snapshotDeleteLabel": {
+    "message": "Delete the snapshot from $DATE$",
+    "description": "Accessible name of a snapshot's Delete button.",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "date"
+      }
+    }
+  },
+  "snapshotConfirmDeleteLabel": {
+    "message": "Confirm deleting the snapshot from $DATE$",
+    "description": "Accessible name of the Delete button while it asks for confirmation.",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "date"
+      }
+    }
+  },
+  "snapshotLoadFailed": {
+    "message": "Couldn't load that snapshot: $DETAIL$",
+    "description": "Error when a snapshot cannot be loaded.",
+    "placeholders": {
+      "detail": {
+        "content": "$1",
+        "example": "detail"
+      }
+    }
+  },
+  "snapshotDownloaded": {
+    "message": "Snapshot saved to your downloads.",
+    "description": "Confirmation after downloading a snapshot."
+  },
+  "snapshotDownloadCancelled": {
+    "message": "Download cancelled.",
+    "description": "Neutral message when the Save dialog was cancelled."
+  },
+  "snapshotDownloadFailed": {
+    "message": "Download failed: $DETAIL$",
+    "description": "Error when a snapshot cannot be downloaded.",
+    "placeholders": {
+      "detail": {
+        "content": "$1",
+        "example": "detail"
+      }
+    }
+  },
+  "snapshotDeleted": {
+    "message": "Snapshot deleted.",
+    "description": "Confirmation after deleting a snapshot."
+  },
+  "snapshotDeleteFailed": {
+    "message": "Couldn't delete the snapshot: $DETAIL$",
+    "description": "Error when a snapshot cannot be deleted.",
+    "placeholders": {
+      "detail": {
+        "content": "$1",
+        "example": "detail"
+      }
+    }
+  },
+  "statusReady": {
+    "message": "Ready",
+    "description": "Initial footer status."
+  },
+  "diagnosticsButton": {
+    "message": "Copy diagnostics",
+    "description": "Footer button copying technical information for bug reports."
+  },
+  "diagnosticsCopied": {
+    "message": "Diagnostics copied",
+    "description": "Confirmation after copying diagnostics."
+  },
+  "diagnosticsFailed": {
+    "message": "Couldn't copy diagnostics: $DETAIL$",
+    "description": "Error when diagnostics cannot be copied.",
+    "placeholders": {
+      "detail": {
+        "content": "$1",
+        "example": "detail"
+      }
+    }
+  }
+}
