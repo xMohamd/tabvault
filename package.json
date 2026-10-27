@@ -1,0 +1,38 @@
+{
+  "name": "tabvault",
+  "description": "Back up and move tabs, tab groups and bookmarks between Chromium browsers and Firefox.",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox",
+    "postinstall": "wxt prepare",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint:firefox": "web-ext lint --source-dir .output/firefox-mv3",
+    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm build:firefox && pnpm lint:firefox"
+  },
+  "dependencies": {
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@wxt-dev/module-react": "^1.1.5",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.0",
+    "web-ext": "^10.5.0",
+    "wxt": "^0.21.3"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  }
+}
