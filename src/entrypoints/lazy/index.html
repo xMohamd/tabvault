@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tab not loaded yet</title>
+    <link rel="stylesheet" href="./lazy.css" />
+  </head>
+  <body>
+    <main class="card">
+      <img id="favicon" class="favicon" alt="" width="32" height="32" hidden />
+      <h1 id="title" class="title"></h1>
+      <p id="url" class="url"></p>
+      <p id="hint" class="hint"></p>
+      <p id="error" class="error" hidden></p>
+      <button id="load" type="button">Load page</button>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

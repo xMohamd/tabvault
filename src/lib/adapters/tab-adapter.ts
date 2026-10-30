@@ -30,7 +30,7 @@ export const MESSAGES = {
 };
 
 /** The lazy placeholder page: a WXT unlisted page (entrypoint `lazy`). */
-export const LAZY_PAGE_PATH = '/lazy.html';
+export const LAZY_PAGE_PATH = '/lazy.html' as const;
 
 const RESTORE_MODES: ReadonlySet<string> = new Set<RestoreMode>(['discard', 'lazy', 'load']);
 const DEFAULT_MODE: RestoreMode = 'discard';
@@ -85,13 +85,6 @@ type WindowLayout = Partial<Pick<Browser.windows.CreateData, 'state' | 'width' |
 
 const errorMessage = (e: unknown): string | undefined => (e instanceof Error ? e.message : undefined);
 
-/**
- * `/lazy.html` is a WXT unlisted page generated in parallel; WXT's strictly typed
- * `runtime.getURL` only knows paths from the last `wxt prepare`, so widen it narrowly.
- */
-function extensionUrl(path: string): string {
-  return (browser.runtime as unknown as { getURL(path: string): string }).getURL(path);
-}
 
 /** Resolves once the tab has a committed URL, or after COMMIT_TIMEOUT_MS. */
 function waitForCommittedUrl(tab: Browser.tabs.Tab): Promise<void> {
@@ -406,7 +399,7 @@ export class TabAdapter {
       title: tab.title || '',
       favicon: tab.favIconUrl || '',
     });
-    return `${extensionUrl(LAZY_PAGE_PATH)}?${query}`;
+    return `${browser.runtime.getURL(LAZY_PAGE_PATH)}?${query}`;
   }
 
   /** Starts a discard task, first making room when the pool is full. */
