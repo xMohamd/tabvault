@@ -3,7 +3,9 @@ import { browser } from 'wxt/browser';
 import { createFakeBrowser } from './helpers/fake-browser';
 
 describe('fake browser helper', () => {
-  let fb: ReturnType<typeof createFakeBrowser>;
+  // The helper is untyped (@ts-nocheck); treat its handle as a loose test fixture.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let fb: any;
   beforeEach(() => {
     fb = createFakeBrowser();
   });
@@ -17,7 +19,7 @@ describe('fake browser helper', () => {
   it('rejects a top-level windowId in tabs.group (regression guard)', async () => {
     const { window, tabs } = fb.seedWindow({}, ['https://a.example/']);
     await expect(
-      (browser.tabs.group as (o: unknown) => Promise<number>)({ tabIds: [tabs[0].id], windowId: window.id }),
+      (browser.tabs.group as (o: unknown) => Promise<number>)({ tabIds: [tabs[0]!.id], windowId: window.id }),
     ).rejects.toThrow(/Unexpected property/);
   });
 });
