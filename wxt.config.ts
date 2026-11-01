@@ -1,4 +1,5 @@
 import { defineConfig } from 'wxt';
+import tailwindcss from '@tailwindcss/vite';
 
 /**
  * WXT generates one manifest per target browser, so each build only contains
@@ -11,6 +12,7 @@ import { defineConfig } from 'wxt';
 export default defineConfig({
   srcDir: 'src',
   modules: ['@wxt-dev/module-react'],
+  vite: () => ({ plugins: [tailwindcss()] }),
   // Explicit imports everywhere: easier to read, test and mock.
   imports: false,
   manifestVersion: 3,
