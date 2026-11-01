@@ -151,6 +151,8 @@ export type Reply<T = object> = Ok<T> | Err;
 export interface Protocol {
   GET_STATE: { req: object; res: Reply<{ browser: BrowserInfo; importState: ImportState }> };
   EXPORT: { req: { options: ExportOptions; saveAs?: boolean }; res: Reply<{ stats: ExportStats; filename: string }> };
+  /** Counts what EXPORT would save with these options, without saving anything. */
+  EXPORT_PREVIEW: { req: { options: ExportOptions }; res: Reply<{ stats: ExportStats }> };
   IMPORT_START: { req: { data: Backup; options: ImportOptions }; res: Reply };
   IMPORT_CANCEL: { req: object; res: Reply };
   DIAGNOSTICS: { req: object; res: Reply<{ report: DiagnosticsReport }> };

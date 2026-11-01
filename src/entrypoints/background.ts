@@ -42,6 +42,11 @@ type Handlers = { [K in MessageType]: Handler<K> };
 const handlers: Handlers = {
   GET_STATE: async () => ({ ok: true, browser: await detectBrowserAsync(), importState }),
   EXPORT: (msg) => handleExport(msg.options, msg.saveAs ?? true),
+  EXPORT_PREVIEW: async (msg) => {
+    const info = await detectBrowserAsync();
+    const { stats } = await new UniversalExporter({ browser: info }).export(msg.options);
+    return { ok: true, stats };
+  },
   IMPORT_START: (msg) => startImport(msg.data, msg.options),
   IMPORT_CANCEL: async () => {
     if (importState.status === 'running') {
