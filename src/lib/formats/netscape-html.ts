@@ -135,7 +135,7 @@ function toNodes(items: HtmlItem[], stats: { urls: number }, depth = 0): Bookmar
       nodes.push(node);
     } else {
       const url = (item.url ?? '').trim();
-      if (!url || /^javascript:/i.test(url)) continue;
+      if (!url) continue; // bookmarklets (javascript:) are kept; the import option decides
       stats.urls++;
       const node: BookmarkNode = { title: item.title, url };
       const added = addDate(item.attrs);

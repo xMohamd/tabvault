@@ -29,7 +29,8 @@ function convertNode(node: unknown, stats: { urls: number }, depth: number): Boo
   if (node.type === 'text/x-moz-place-separator') return { type: 'separator', title: '' };
   if (node.type === 'text/x-moz-place') {
     if (typeof node.uri !== 'string' || node.uri === '') return null;
-    if (/^(?:place|javascript):/i.test(node.uri.trim())) return null;
+    // place: URIs are Firefox smart queries; bookmarklets (javascript:) are kept.
+    if (/^place:/i.test(node.uri.trim())) return null;
     stats.urls++;
     const out: BookmarkNode = { title, url: node.uri };
     if (typeof node.dateAdded === 'number' && Number.isFinite(node.dateAdded)) {

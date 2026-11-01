@@ -17,6 +17,8 @@ export interface ExportFilters {
 export interface ExportOptions {
   includeTabs: boolean;
   includeBookmarks: boolean;
+  /** Keep javascript: bookmarks. Default true. */
+  includeBookmarklets?: boolean;
   includeFavicons?: boolean;
   includeIncognito?: boolean;
   unwrapPlaceholders?: boolean;
@@ -29,6 +31,8 @@ export interface ExportStats {
   tabs: number;
   groups: number;
   bookmarks: number;
+  /** javascript: bookmarks included in `bookmarks` (absent in snapshots made before v2.0). */
+  bookmarklets?: number;
   skippedTabs: number;
 }
 
@@ -50,6 +54,8 @@ export interface ImportOptions {
   importBookmarks: boolean;
   bookmarkStrategy?: BookmarkStrategy;
   skipDuplicateBookmarks?: boolean;
+  /** Restore javascript: bookmarks. Default true. */
+  importBookmarklets?: boolean;
   restoreMode?: RestoreMode;
   restoreWindowLayout?: boolean;
   skipOpenTabs?: boolean;

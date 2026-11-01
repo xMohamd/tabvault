@@ -240,6 +240,19 @@ export function countBookmarks(nodes: BookmarkNode[] | null | undefined): number
   return n;
 }
 
+/** Number of bookmarklets (javascript: bookmarks) in a tree. */
+export function countBookmarklets(nodes: BookmarkNode[] | null | undefined): number {
+  if (!Array.isArray(nodes)) return 0;
+  let n = 0;
+  const stack = [...nodes];
+  while (stack.length) {
+    const node = stack.pop();
+    if (node?.url && /^\s*javascript:/i.test(node.url)) n++;
+    if (Array.isArray(node?.children)) stack.push(...node.children);
+  }
+  return n;
+}
+
 export interface OrderedEntry {
   tab: BackupTab;
   /** -1 = ungrouped */

@@ -120,6 +120,7 @@ export class UniversalImporter {
       const adapterOptions: BookmarksImportOptions = {
         strategy,
         skipDuplicates: options.skipDuplicateBookmarks !== false,
+        includeBookmarklets: options.importBookmarklets !== false,
         isCancelled: options.isCancelled,
         onProgress: report,
         onFailure: (f) => addFailure('bookmark', f),

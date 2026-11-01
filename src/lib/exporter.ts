@@ -14,13 +14,14 @@ import {
   normalizeColor,
   countTabs,
   countBookmarks,
+  countBookmarklets,
   type Backup,
   type BackupGroup,
   type BackupTab,
   type BackupWindow,
   type BookmarkNode,
 } from './schema';
-import { isInternalUrl, normalizeDomain, urlMatchesDomains, unwrapPlaceholderUrl } from './url-utils';
+import { isBookmarkletUrl, isInternalUrl, normalizeDomain, urlMatchesDomains, unwrapPlaceholderUrl } from './url-utils';
 import type { ExportOptions, ExportStats } from './types';
 
 /** data: favicons larger than this are dropped even when favicons are requested. */
@@ -35,6 +36,14 @@ interface NormalizedFilters {
   excludeInternal: boolean;
   domains: string[];
   applyToBookmarks: boolean;
+}
+
+/** How bookmarks are filtered on export. */
+interface BookmarkRules {
+  /** Domain / internal-page filters apply to bookmarks too. */
+  filter: boolean;
+  /** Keep javascript: bookmarks. They ignore the other filters: they have no host. */
+  includeBookmarklets: boolean;
 }
 
 /** Opera exposes workspaces on tabs; they are not part of the standard types. */
@@ -70,6 +79,7 @@ export class UniversalExporter {
         excludeInternal: filters.excludeInternal,
         domains: filters.domains,
         applyToBookmarks: filters.applyToBookmarks,
+        includeBookmarklets: options.includeBookmarklets !== false,
       },
     });
     data.schemaVersion = SCHEMA_VERSION;
@@ -79,7 +89,7 @@ export class UniversalExporter {
       data.windows = await this.getWindows(info, options, filters, skipped);
     }
     if (options.includeBookmarks) {
-      data.bookmarks = await this.getBookmarks(info, filters);
+      data.bookmarks = await this.getBookmarks(info, filters, options.includeBookmarklets !== false);
     }
 
     const stats: ExportStats = {
@@ -87,6 +97,7 @@ export class UniversalExporter {
       tabs: countTabs(data),
       groups: data.windows.reduce((n, w) => n + w.groups.length, 0),
       bookmarks: countBookmarks(data.bookmarks),
+      bookmarklets: countBookmarklets(data.bookmarks),
       skippedTabs: skipped.count,
     };
     logger.info('EXPORT_COMPLETE', stats);
@@ -304,17 +315,24 @@ export class UniversalExporter {
 
   // -------------------------------------------------------------- bookmarks
 
-  private async getBookmarks(info: BrowserInfo, filters: NormalizedFilters): Promise<BookmarkNode[]> {
+  private async getBookmarks(
+    info: BrowserInfo,
+    filters: NormalizedFilters,
+    includeBookmarklets: boolean,
+  ): Promise<BookmarkNode[]> {
     if (!info.features?.bookmarks) {
       logger.warn('EXPORT_BOOKMARKS_UNSUPPORTED', { browser: info.key });
       return [];
     }
     try {
       const tree = await ext.bookmarks.getTree();
-      const prune = filters.applyToBookmarks && (filters.domains.length > 0 || filters.excludeInternal);
+      const rules: BookmarkRules = {
+        filter: filters.applyToBookmarks && (filters.domains.length > 0 || filters.excludeInternal),
+        includeBookmarklets,
+      };
       const nodes: BookmarkNode[] = [];
       for (const root of tree || []) {
-        const node = this.cleanBookmark(root, filters, prune, 0);
+        const node = this.cleanBookmark(root, filters, rules, 0);
         if (node) nodes.push(node);
       }
       return nodes;
@@ -325,31 +343,36 @@ export class UniversalExporter {
   }
 
   /**
-   * Strips volatile fields and (when pruning) removes non-matching bookmarks.
+   * Strips volatile fields and removes bookmarks the rules exclude.
    * Folders at depth <= 1 (root and top-level role folders) are always kept.
+   * Other folders are dropped when filtering empties them; with domain/internal
+   * filters on, folders that were already empty are dropped too (old behaviour).
    */
   private cleanBookmark(
     node: Browser.bookmarks.BookmarkTreeNode | null | undefined,
     filters: NormalizedFilters,
-    prune: boolean,
+    rules: BookmarkRules,
     depth: number,
   ): BookmarkNode | null {
     if (!node || typeof node !== 'object') return null;
 
     if (node.url) {
-      if (prune && !this.bookmarkMatches(node.url, filters)) return null;
+      if (isBookmarkletUrl(node.url)) return rules.includeBookmarklets ? this.pickBookmarkFields(node) : null;
+      if (rules.filter && !this.bookmarkMatches(node.url, filters)) return null;
       return this.pickBookmarkFields(node);
     }
 
     const out = this.pickBookmarkFields(node);
     if (Array.isArray(node.children)) {
       out.children = node.children
-        .map((child) => this.cleanBookmark(child, filters, prune, depth + 1))
+        .map((child) => this.cleanBookmark(child, filters, rules, depth + 1))
         .filter((c): c is BookmarkNode => c !== null);
     } else if ((node as { children?: unknown }).children !== undefined) {
       out.children = [];
     }
-    if (prune && depth > 1 && (!out.children || out.children.length === 0)) return null;
+    const isEmpty = !out.children || out.children.length === 0;
+    const hadChildren = Array.isArray(node.children) && node.children.length > 0;
+    if (depth > 1 && isEmpty && (rules.filter || (hadChildren && !rules.includeBookmarklets))) return null;
     return out;
   }
 

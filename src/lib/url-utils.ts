@@ -36,6 +36,11 @@ export function isInternalUrl(url: unknown): boolean {
   return INTERNAL_PREFIXES.some((p) => lower.startsWith(p));
 }
 
+/** A bookmarklet: a bookmark whose address is a script, run when clicked. */
+export function isBookmarkletUrl(url: unknown): boolean {
+  return typeof url === 'string' && /^\s*javascript:/i.test(url);
+}
+
 export function isBlankUrl(url: unknown): boolean {
   return typeof url === 'string' && BLANK_URLS.has(url.toLowerCase());
 }

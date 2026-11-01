@@ -9,7 +9,7 @@ import { browser, type Browser } from 'wxt/browser';
 import { logger } from '../logger';
 import { countBookmarks, type BookmarkNode } from '../schema';
 import type { BookmarkStrategy, Failure } from '../types';
-import { dedupKey, type BrowserFamily } from '../url-utils';
+import { dedupKey, isBookmarkletUrl, type BrowserFamily } from '../url-utils';
 
 const MAX_DEPTH = 100;
 const PROGRESS_STEP = 25;
@@ -43,9 +43,13 @@ const TITLE_ROLES: Record<string, RootRole> = {
 /** Roles whose children are cleared by the 'replace' strategy. */
 const REPLACEABLE_ROLES: RootRole[] = ['bar', 'other', 'mobile', 'menu'];
 
-/** URL schemes each browser family refuses in bookmarks.create. */
+/**
+ * URL schemes each browser family is known to refuse in bookmarks.create.
+ * javascript: (bookmarklets) is NOT listed: Firefox's bookmarks schema puts no
+ * restriction on the URL, so we try and report the browser's own error if any.
+ */
 const REJECTED_SCHEMES: Partial<Record<BrowserFamily, string[]>> = {
-  gecko: ['javascript', 'data', 'chrome', 'chrome-extension', 'edge', 'brave', 'opera', 'vivaldi'],
+  gecko: ['data', 'chrome', 'chrome-extension', 'edge', 'brave', 'opera', 'vivaldi'],
   chromium: ['place', 'about', 'moz-extension'],
 };
 
@@ -141,6 +145,8 @@ export interface BookmarksImportOptions {
   strategy?: BookmarkStrategy;
   /** Skip URLs already in the target folder; reuse same-title subfolders. Default true. */
   skipDuplicates?: boolean;
+  /** Restore javascript: bookmarks (bookmarklets). Default true; when false they count as skipped. */
+  includeBookmarklets?: boolean;
   isCancelled?: () => boolean;
   /** processed / total URL bookmarks */
   onProgress?: (current: number, total: number) => void;
@@ -161,6 +167,7 @@ interface Context {
   total: number;
   family: BrowserFamily;
   skipDuplicates: boolean;
+  includeBookmarklets: boolean;
   created: number;
   skipped: number;
   failed: number;
@@ -234,6 +241,7 @@ export class BookmarksAdapter {
       total,
       family: this.family,
       skipDuplicates: opts.skipDuplicates !== false,
+      includeBookmarklets: opts.includeBookmarklets !== false,
       created: 0,
       skipped: 0,
       failed: 0,
@@ -424,6 +432,11 @@ export class BookmarksAdapter {
 
   private async addBookmark(ctx: Context, node: BookmarkNode, url: string, parentId: string): Promise<void> {
     const title = node.title ?? '';
+    if (!ctx.includeBookmarklets && isBookmarkletUrl(url)) {
+      ctx.skipped++;
+      ctx.advance();
+      return;
+    }
     const reason = unsupportedUrlReason(url, ctx.family);
     if (reason) {
       this.recordFailure(ctx, { url, title, reason });
