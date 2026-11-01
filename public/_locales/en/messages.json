@@ -1162,5 +1162,49 @@
         "example": "detail"
       }
     }
+  },
+  "exportIncludeBookmarklets": {
+    "message": "Include bookmarklets (javascript: bookmarks)",
+    "description": "Checkbox under Bookmarks on Export: keep bookmarks whose address is a javascript: script."
+  },
+  "importBookmarkletsOption_one": {
+    "message": "Include $COUNT$ bookmarklet",
+    "description": "Checkbox under Bookmarks on Import (singular): restore the javascript: bookmark found in the file.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "importBookmarkletsOption_other": {
+    "message": "Include $COUNT$ bookmarklets",
+    "description": "Checkbox under Bookmarks on Import (plural): restore the javascript: bookmarks found in the file.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "warnBookmarklets_one": {
+    "message": "Contains $COUNT$ bookmarklet. Bookmarklets run code on the page you click them on, so only restore them from a file you trust.",
+    "description": "Import summary note (singular) about javascript: bookmarks in the file.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "warnBookmarklets_other": {
+    "message": "Contains $COUNT$ bookmarklets. Bookmarklets run code on the page you click them on, so only restore them from a file you trust.",
+    "description": "Import summary note (plural) about javascript: bookmarks in the file.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
   }
 }

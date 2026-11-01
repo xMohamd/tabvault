@@ -34,6 +34,7 @@ function describeExport(stats: ExportStats | undefined, includeTabs: boolean, in
 export function ExportPanel({ active, setStatus }: { active: boolean; setStatus: SetStatus }) {
   const [tabs, setTabs] = useState(true);
   const [bookmarks, setBookmarks] = useState(true);
+  const [bookmarklets, setBookmarklets] = useState(true);
   const [domain, setDomain] = useState('');
   const [filterBookmarks, setFilterBookmarks] = useState(false);
   const [excludeInternal, setExcludeInternal] = useState(true);
@@ -60,6 +61,7 @@ export function ExportPanel({ active, setStatus }: { active: boolean; setStatus:
     const options: ExportOptions = {
       includeTabs: tabs,
       includeBookmarks: bookmarks,
+      includeBookmarklets: bookmarklets,
       includeFavicons: favicons,
       unwrapPlaceholders: unwrap,
       includeWindowLayout: layout,
@@ -98,6 +100,11 @@ export function ExportPanel({ active, setStatus }: { active: boolean; setStatus:
             primary={t('exportBookmarksPrimary')}
             secondary={t('exportBookmarksSecondary')}
           />
+        </div>
+        <div className="check-list sub-option">
+          <CheckboxSimple id="ex-bookmarklets" checked={bookmarklets} disabled={!bookmarks} onChange={setBookmarklets}>
+            {t('exportIncludeBookmarklets')}
+          </CheckboxSimple>
         </div>
         <Hint id="export-empty-hint" tone={TONE.warning} text={anySelected ? null : t('exportNothingSelected')} />
       </div>

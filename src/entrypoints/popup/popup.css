@@ -1581,3 +1581,9 @@ select:focus-visible {
     transform: none;
   }
 }
+
+/* Option that refines the checkbox above it (e.g. bookmarklets under Bookmarks). */
+.sub-option {
+  margin-top: var(--space-3);
+  padding-left: var(--space-6);
+}

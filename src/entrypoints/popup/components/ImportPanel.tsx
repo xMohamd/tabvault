@@ -2,7 +2,7 @@ import { useRef, useState, type ChangeEvent, type DragEvent, type MouseEvent, ty
 import { send } from '@/lib/messaging';
 import { t, tp } from '@/lib/i18n';
 import { parseBackupFile } from '@/lib/formats';
-import { BackupFormatError, countBookmarks, countGroups, countTabs, normalizeBackup, type NormalizeWarnings } from '@/lib/schema';
+import { BackupFormatError, countBookmarklets, countBookmarks, countGroups, countTabs, normalizeBackup, type NormalizeWarnings } from '@/lib/schema';
 import type { BrowserInfo } from '@/lib/browser-detect';
 import type { BookmarkStrategy, ImportOptions, ImportState, RestoreMode } from '@/lib/types';
 import {
@@ -274,6 +274,8 @@ function ImportSession(props: SessionProps) {
   const bookmarksSupported = browser.features?.bookmarks !== false;
   const [importTabs, setImportTabs] = useState(hasTabs);
   const [importBookmarks, setImportBookmarks] = useState(hasBookmarks && bookmarksSupported);
+  const bookmarkletCount = countBookmarklets(data.bookmarks);
+  const [importBookmarklets, setImportBookmarklets] = useState(true);
   const [confirming, setConfirming] = useState(false);
   const [starting, setStarting] = useState(false);
   const startButton = useRef<HTMLButtonElement>(null);
@@ -301,6 +303,7 @@ function ImportSession(props: SessionProps) {
     ...(invalid > 0 ? [tp('warnInvalidEntries', invalid, fmt(invalid))] : []),
     ...(warnings?.newerSchema ? [t('warnNewerSchema')] : []),
     ...(data.source?.truncated ? [t('warnTruncated')] : []),
+    ...(bookmarkletCount > 0 && bookmarksSupported ? [tp('warnBookmarklets', bookmarkletCount, fmt(bookmarkletCount))] : []),
   ];
 
   function handleStartClick() {
@@ -318,6 +321,7 @@ function ImportSession(props: SessionProps) {
       importBookmarks: bookmarksOn,
       bookmarkStrategy: settings.bmStrategy,
       skipDuplicateBookmarks: settings.skipDupes && !replacing,
+      importBookmarklets: importBookmarklets,
       restoreMode: settings.restoreMode,
       restoreWindowLayout: settings.restoreLayout,
       skipOpenTabs: settings.skipOpen,
@@ -380,6 +384,18 @@ function ImportSession(props: SessionProps) {
               primary={t('importBookmarksOption')}
             />
           </div>
+          {bookmarkletCount > 0 && bookmarksSupported && (
+            <div className="check-list sub-option">
+              <CheckboxSimple
+                id="im-bookmarklets"
+                checked={importBookmarklets}
+                disabled={!bookmarksOn}
+                onChange={touched(setImportBookmarklets)}
+              >
+                {tp('importBookmarkletsOption', bookmarkletCount, fmt(bookmarkletCount))}
+              </CheckboxSimple>
+            </div>
+          )}
         </div>
       )}
 
