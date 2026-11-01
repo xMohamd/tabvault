@@ -77,6 +77,7 @@ const seed = await evaluate(`
   const [root] = await chrome.bookmarks.getTree();
   const bar = root.children.find(c => c.folderType === 'bookmarks-bar') || root.children[0];
   await chrome.bookmarks.create({ parentId: bar.id, title: 'Smoke BM', url: '${siteBase}/bm.html' });
+  await chrome.bookmarks.create({ parentId: bar.id, title: 'Smoke JS', url: 'javascript:void(document.title)' });
   return { windowId: w.id };`);
 ok(seed.windowId, 'seeded source window');
 
@@ -99,6 +100,7 @@ ok(ex.ok && files.some((f) => f.startsWith('tabs-export-')), `EXPORT downloaded 
 if (files[0]) {
     const parsed = JSON.parse(readFileSync(join(dlDir, files[0]), 'utf8'));
     ok(parsed.schemaVersion === '1.1' && parsed.windows.length >= 1, 'exported file is valid v1.1');
+    ok(JSON.stringify(parsed.bookmarks).includes('javascript:void(document.title)'), 'bookmarklet exported');
 }
 
 // Close the seed window, then restore from the snapshot.
@@ -126,6 +128,22 @@ const start2 = await send({ type: 'IMPORT_START', data, options: { importTabs: t
 for (let i = 0; i < 100; i++) { await sleep(200); fin = (await send({ type: 'GET_STATE' })).importState; if (!['running', 'cancelling'].includes(fin.status)) break; }
 const lazy = await evaluate(`return (await chrome.tabs.query({})).filter(t => (t.url||t.pendingUrl).includes('/lazy.html')).length;`);
 ok(start2.ok && fin.status === 'done' && lazy >= 3, `lazy mode tabs: ${lazy}`);
+
+// Bookmarklets: restored into a dated folder by real Chrome, and skipped when the option is off.
+{
+    const run = async (importBookmarklets) => {
+        const r = await send({ type: 'IMPORT_START', data, options: { importTabs: false, importBookmarks: true, bookmarkStrategy: 'folder', importBookmarklets } });
+        let s;
+        for (let i = 0; i < 100; i++) { await sleep(100); s = (await send({ type: 'GET_STATE' })).importState; if (!['running', 'cancelling'].includes(s.status)) break; }
+        return r.ok ? s : { status: 'start-failed' };
+    };
+    const countJs = () => evaluate(`return (await chrome.bookmarks.search({ title: 'Smoke JS' })).filter(b => b.url?.startsWith('javascript:')).length;`);
+    const before = await countJs();
+    const on = await run(true);
+    ok(on.status === 'done' && (await countJs()) === before + 1, `bookmarklet restored (failures: ${JSON.stringify(on.result?.failures ?? [])})`);
+    const off = await run(false);
+    ok(off.status === 'done' && (await countJs()) === before + 1 && off.result.bookmarksSkipped >= 1, 'bookmarklet skipped when the option is off');
+}
 
 // Regression: the real action popup must not collapse (viewport units used to lock it at 25x250).
 {

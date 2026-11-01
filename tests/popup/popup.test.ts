@@ -97,6 +97,7 @@ describe('export', () => {
       options: {
         includeTabs: true,
         includeBookmarks: false,
+        includeBookmarklets: true,
         includeFavicons: true,
         unwrapPlaceholders: true,
         includeWindowLayout: true,
@@ -108,6 +109,29 @@ describe('export', () => {
     await waitFor(() => expect($('#export-result').textContent).toBe(expected));
     expect($('#status-msg').textContent).toBe(expected);
     expect($('#status-msg').classList.contains('is-success')).toBe(true);
+  });
+
+  it('has a bookmarklets option under Bookmarks that follows it', async () => {
+    const user = userEvent.setup();
+    routeSend({
+      EXPORT: () => ({ ok: true, filename: 'x.json', stats: { windows: 0, tabs: 0, groups: 0, bookmarks: 3, skippedTabs: 0 } }),
+    });
+    renderApp();
+
+    const box = $<HTMLInputElement>('#ex-bookmarklets');
+    expect(box.checked).toBe(true);
+    await user.click($('#ex-bookmarks')); // bookmarks off -> option unavailable
+    expect(box.disabled).toBe(true);
+    await user.click($('#ex-bookmarks')); // back on
+    expect(box.disabled).toBe(false);
+
+    await user.click(box); // off
+    await user.click($('#btn-export'));
+    await waitFor(() => expect(callsOf('EXPORT')).toHaveLength(1));
+    expect((callsOf('EXPORT')[0] as { options: Record<string, unknown> }).options).toMatchObject({
+      includeBookmarks: true,
+      includeBookmarklets: false,
+    });
   });
 
   it('shows the error when the export fails', async () => {
@@ -168,6 +192,33 @@ describe('import', () => {
     expect(data.windows[0]?.groups).toHaveLength(0);
     expect(data.windows[0]?.ungroupedTabs).toHaveLength(2);
     expect(options).toMatchObject({ importTabs: true, importBookmarks: false, restoreMode: 'discard', focusRestored: false });
+  });
+
+  it('offers bookmarklets only when the file has some, with a warning, and sends the choice', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await chooseFile(user, backupFile(makeBackup(true)));
+    expect(document.querySelector('#im-bookmarklets')).toBeNull(); // no bookmarklets in this file
+
+    const withScripts = makeBackup(true);
+    withScripts.bookmarks[0]?.children?.push(
+      { title: 'Dark mode', url: 'javascript:void(document.body.style.filter="invert(1)")' },
+      { title: 'Word count', url: 'javascript:alert(document.body.innerText.split(/\\s+/).length)' },
+    );
+    await chooseFile(user, backupFile(withScripts, 'with-bookmarklets.json'));
+
+    const box = $<HTMLInputElement>('#im-bookmarklets');
+    expect(box.checked).toBe(true);
+    expect(box.closest('label')?.textContent).toBe(tp('importBookmarkletsOption', 2, '2'));
+    expect($('#summary-warnings').textContent).toContain(tp('warnBookmarklets', 2, '2'));
+
+    await user.click($('#im-bookmarks')); // bookmarks off -> option unavailable
+    expect(box.disabled).toBe(true);
+    await user.click($('#im-bookmarks'));
+    await user.click(box); // off
+    await user.click($('#btn-import'));
+    await waitFor(() => expect(callsOf('IMPORT_START')).toHaveLength(1));
+    expect(callsOf('IMPORT_START')[0]?.options).toMatchObject({ importBookmarks: true, importBookmarklets: false });
   });
 
   it('requires a confirmation before replacing bookmarks', async () => {

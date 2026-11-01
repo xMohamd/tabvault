@@ -129,7 +129,7 @@ describe('Netscape bookmarks HTML', () => {
     <DT><A HREF="https://top.com">Top</A>
 </DL><p>`;
 
-  it('parses toolbar, nesting, entities, dates and drops javascript: links', () => {
+  it('parses toolbar, nesting, entities, dates and keeps bookmarklets', () => {
     const r = parseBackupFile(html);
     expect(r.format).toBe('netscape-html');
     const root = at(r.data.bookmarks, 0);
@@ -147,7 +147,7 @@ describe('Netscape bookmarks HTML', () => {
     expect(at(sub.children, 1).children?.length).toBe(0);
     const other = at(root.children, 1);
     expect(other.folderType).toBe('other');
-    expect(other.children?.length).toBe(1);
+    expect(other.children?.map((c) => c.url)).toEqual(['javascript:alert(1)', 'https://top.com']);
   });
 
   it('wraps content in "Imported bookmarks" when there is no toolbar folder', () => {

@@ -137,3 +137,13 @@ describe('isInternalUrl / isBlankUrl', () => {
         assert.equal(isBlankUrl('https://a.com'), false);
     });
 });
+
+describe('isBookmarkletUrl', () => {
+    it('recognises javascript: in any case, with leading spaces', async () => {
+        const { isBookmarkletUrl } = await import('@/lib/url-utils');
+        assert.equal(isBookmarkletUrl('javascript:alert(1)'), true);
+        assert.equal(isBookmarkletUrl('  JavaScript:void(0)'), true);
+        assert.equal(isBookmarkletUrl('https://javascript.info/'), false);
+        assert.equal(isBookmarkletUrl(undefined), false);
+    });
+});

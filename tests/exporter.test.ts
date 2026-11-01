@@ -30,6 +30,7 @@ const bookmarkTree = () => [
           { id: '10', title: 'gh', url: 'https://gist.github.com/x', dateAdded: 1, syncing: true },
           { id: '11', title: 'no', url: 'https://notgithub.com/' },
           { id: '12', title: 'int', url: 'chrome://flags' },
+          { id: '17', title: 'bm', url: 'javascript:void(document.title)' },
           { id: '13', title: 'F', children: [{ id: '14', title: 'x', url: 'https://other.org' }] },
           { id: '15', title: 'F2', children: [{ id: '16', title: 'y', url: 'https://github.com/y' }] },
         ],
@@ -124,7 +125,7 @@ describe('UniversalExporter', () => {
     expect(sp.url).toBe('https://example.com/a?b=1');
     expect(sp.metadata?.originalUrl).toBe(susp);
     expect(byTitle(w, 'A').metadata).toBeUndefined();
-    expect(stats.bookmarks).toBe(5);
+    expect(stats.bookmarks).toBe(6);
   });
 
   it('includes favicons only when asked and drops oversized data: icons', async () => {
@@ -159,13 +160,31 @@ describe('UniversalExporter', () => {
     // notgithub.com must not match github.com
     expect(urls).toEqual(['https://github.com/a', 'https://github.com/b', 'https://gist.github.com/z'].sort());
     expect(sortedIdx(w)).toEqual([0, 1, 2]); // indices compacted
-    expect(data.source.filtersApplied).toEqual({ excludeInternal: true, domains: ['github.com'], applyToBookmarks: true });
+    expect(data.source.filtersApplied).toEqual({
+      excludeInternal: true,
+      domains: ['github.com'],
+      applyToBookmarks: true,
+      includeBookmarklets: true,
+    });
     const root = data.bookmarks[0];
     expect(root?.children).toHaveLength(2); // empty system folders are kept
     const bar = root?.children?.[0];
-    expect(bar?.children?.map((c) => c.id)).toEqual(['10', '15']);
+    // the bookmarklet (17) survives: it has no host, so only its own option applies
+    expect(bar?.children?.map((c) => c.id)).toEqual(['10', '17', '15']);
     expect((bar?.children?.[0] as unknown as Record<string, unknown>).syncing).toBeUndefined();
-    expect(stats.bookmarks).toBe(2);
+    expect(stats.bookmarks).toBe(3);
+    expect(stats.bookmarklets).toBe(1);
+  });
+
+  it('drops bookmarklets only when includeBookmarklets is false', async () => {
+    const kept = await ex().export({ includeTabs: false, includeBookmarks: true });
+    expect(kept.stats.bookmarklets).toBe(1);
+    const { data, stats } = await ex().export({ includeTabs: false, includeBookmarks: true, includeBookmarklets: false });
+    expect(stats.bookmarklets).toBe(0);
+    expect(stats.bookmarks).toBe(kept.stats.bookmarks - 1);
+    expect(JSON.stringify(data.bookmarks)).not.toContain('javascript:');
+    // folders that weren't emptied by the rule are untouched
+    expect(JSON.stringify(data.bookmarks)).toContain('"F2"');
   });
 
   it('excludeInternal alone leaves bookmarks untouched', async () => {
@@ -174,7 +193,7 @@ describe('UniversalExporter', () => {
       includeBookmarks: true,
       filters: { excludeInternal: true },
     });
-    expect(stats.bookmarks).toBe(5);
+    expect(stats.bookmarks).toBe(6);
   });
 
   it('exports empty bookmarks and no groups when unsupported', async () => {

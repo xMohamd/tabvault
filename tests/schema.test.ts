@@ -131,3 +131,15 @@ describe('counting and helpers', () => {
         assert.deepEqual([b.windows, b.bookmarks, b.source], [[], [], { browser: 'x' }]);
     });
 });
+
+describe('countBookmarklets', () => {
+    it('counts javascript: bookmarks in nested trees', async () => {
+        const { countBookmarklets } = await import('@/lib/schema');
+        const tree = [{ title: '', children: [
+            { title: 'a', url: 'javascript:1' },
+            { title: 'f', children: [{ title: 'b', url: 'JAVASCRIPT:2' }, { title: 'c', url: 'https://x' }] },
+        ] }];
+        assert.equal(countBookmarklets(tree), 2);
+        assert.equal(countBookmarklets(null), 0);
+    });
+});

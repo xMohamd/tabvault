@@ -32,6 +32,10 @@ APIs at runtime, not guessed from the browser name.
   placeholder page, or load normally. Bookmarks merge into the matching folders, go into a
   dated folder, or replace the existing ones (after a confirmation and an automatic
   safety snapshot). Anything that couldn't be restored is listed with the reason.
+- **Bookmarklets** (`javascript:` bookmarks) have their own option under Bookmarks on both
+  Export and Import, on by default. The import summary says how many a file contains,
+  since a bookmarklet runs code on the page you click it on. Restored tabs never open
+  `javascript:` addresses.
 - **Backups**: automatic snapshots (hourly, daily or weekly, keeping the last N), plus
   "back up now", restore, download and delete. Stored only in this browser.
 - Restores run in the background, so closing the popup doesn't stop them.

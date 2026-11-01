@@ -150,7 +150,7 @@ describe('BookmarksAdapter: Firefox export into Firefox', () => {
     { id: 'menu________', title: 'Bookmarks Menu' }, { id: 'toolbar_____', title: 'Bookmarks Toolbar' },
     { id: 'unfiled_____', title: 'Other Bookmarks' }, { id: 'mobile______', title: 'Mobile Bookmarks' }];
 
-  it('merges by guid, keeps separators once, rejects javascript:', async () => {
+  it('merges by guid, keeps separators once and attempts bookmarklets', async () => {
     const { root, nodes } = makeChrome(ffRoots());
     const ad = new BookmarksAdapter({ family: 'gecko' });
     const fails = [];
@@ -159,12 +159,25 @@ describe('BookmarksAdapter: Firefox export into Firefox', () => {
     expect(titles(nodes, 'menu________')).toEqual(['Menu1']);
     expect(kids(nodes, 'toolbar_____').filter((c) => c.type === 'separator').length).toBe(1);
     expect(kids(nodes, 'toolbar_____').filter((c) => c.title === 'T1').length).toBe(1);
-    expect(fails.length).toBe(1);
-    expect(fails[0].url).toBe('javascript:alert(1)');
+    expect(titles(nodes, 'toolbar_____'), 'bookmarklet attempted on Firefox').toContain('JS');
+    expect(fails, 'no scheme is pre-rejected here').toEqual([]);
 
     const r2 = await ad.import(ffExport(), { strategy: 'merge' });
     expect(r2.created).toBe(0);
     expect(kids(nodes, 'toolbar_____').filter((c) => c.type === 'separator').length, 'no stacked separators').toBe(1);
+  });
+
+  it('skips bookmarklets when includeBookmarklets is false (counted as skipped)', async () => {
+    const { nodes } = makeChrome(ffRoots());
+    const fails = [];
+    const r = await new BookmarksAdapter({ family: 'gecko' }).import(ffExport(), {
+      strategy: 'merge',
+      includeBookmarklets: false,
+      onFailure: (x) => fails.push(x),
+    });
+    expect(titles(nodes, 'toolbar_____')).not.toContain('JS');
+    expect(fails.some((x) => String(x.url).startsWith('javascript:'))).toBe(false);
+    expect(r.skipped).toBeGreaterThanOrEqual(1);
   });
 
   it('honours cancellation', async () => {
