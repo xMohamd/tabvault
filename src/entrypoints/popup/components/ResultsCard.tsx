@@ -1,8 +1,15 @@
-import { Fragment } from 'react';
+/** Body shown after a restore finishes: outcome, counts, problems, failed items, and the way forward. */
+import { ChevronRightIcon, CopyIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { t, tp } from '@/lib/i18n';
 import type { Failure, ImportState } from '@/lib/types';
+import { cn } from '@/lib/utils';
 import { copyText, fmt, messageOf, TONE, type SetStatus, type Tone } from '../shared';
-import { Hint } from './ui';
+import { useFocusOnMount } from './ImportProgress';
+import { ToneAlert } from './ToneAlert';
+import { useState } from 'react';
 
 const FAILURE_REASON_KEYS: Record<string, string> = {
   'internal-page': 'failureInternalPage',
@@ -45,16 +52,17 @@ export function describeFinish(state: ImportState): { message: string; tone: Ton
 
 export function ResultsCard({
   state,
-  visible,
   onDismiss,
+  onRestoreAnother,
   setStatus,
 }: {
   state: ImportState;
-  visible: boolean;
   onDismiss: () => void;
+  onRestoreAnother: () => void;
   setStatus: SetStatus;
 }) {
-  if (!visible) return null;
+  const [failuresOpen, setFailuresOpen] = useState(false);
+  const focusOnMount = useFocusOnMount();
   const outcome = describeFinish(state);
   const result = state.result;
   const errors = result?.errors ?? [];
@@ -84,55 +92,83 @@ export function ResultsCard({
   }
 
   return (
-    <section className="card" id="results-card" aria-labelledby="results-title">
-      <div className="card-head">
-        <h3 className="section-label" id="results-title">
+    <>
+      <section id="results-card" aria-labelledby="results-title" className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
+        <h2 id="results-title" ref={focusOnMount} tabIndex={-1} className="text-sm font-medium outline-none!">
           {t('resultsTitle')}
-        </h3>
-        <button type="button" id="btn-results-dismiss" className="btn-link" onClick={onDismiss}>
-          {t('resultsDismiss')}
-        </button>
-      </div>
-      <Hint id="results-summary" className="no-top" text={outcome?.message} tone={outcome?.tone} />
-      {result && (
-        <dl id="results-stats" className="stat-grid">
-          {rows.map(([labelKey, value, isFailure]) => (
-            <Fragment key={labelKey}>
-              <dt>{t(labelKey)}</dt>
-              <dd className={isFailure && value > 0 ? 'is-bad' : undefined}>{fmt(value)}</dd>
-            </Fragment>
-          ))}
-        </dl>
-      )}
-      {errors.length > 0 && (
-        <div id="results-errors-wrap">
-          <h4 className="sub-label">{t('resultsErrorsLabel')}</h4>
-          <ul id="results-errors" className="plain-list">
-            {errors.map((message, i) => (
-              <li key={i}>{String(message)}</li>
+        </h2>
+
+        {outcome && (
+          <ToneAlert id="results-summary" tone={outcome.tone}>
+            {outcome.message}
+          </ToneAlert>
+        )}
+
+        {result && (
+          <dl id="results-stats" className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg border bg-card px-3 py-3">
+            {rows.map(([labelKey, value, isFailure]) => (
+              <div key={labelKey} className="flex items-baseline justify-between gap-2 text-sm">
+                <dt className="text-muted-foreground">{t(labelKey)}</dt>
+                <dd className={cn('font-semibold tabular-nums', isFailure && value > 0 && 'text-destructive')}>{fmt(value)}</dd>
+              </div>
             ))}
-          </ul>
-        </div>
-      )}
-      {failures.length > 0 && (
-        <details id="results-failures" className="failures">
-          <summary id="results-failures-summary">{tp('failuresSummary', failures.length, fmt(failures.length))}</summary>
-          <div className="failures-actions">
-            <button type="button" id="btn-copy-failures" className="btn-small" onClick={copyFailures}>
-              {t('failuresCopy')}
-            </button>
+          </dl>
+        )}
+
+        {errors.length > 0 && (
+          <div id="results-errors-wrap" className="flex flex-col gap-1.5">
+            <h3 className="text-sm font-medium">{t('resultsErrorsLabel')}</h3>
+            <ul id="results-errors" className="flex list-disc flex-col gap-1 pl-5 text-sm text-destructive">
+              {errors.map((message, i) => (
+                <li key={i}>{String(message)}</li>
+              ))}
+            </ul>
           </div>
-          <ul id="results-failures-list" className="failure-list">
-            {failures.map((failure, i) => (
-              <li key={i}>
-                <span className="failure-title">{failure.title || failure.url || failureKind(failure.kind)}</span>
-                {failure.title && failure.url && <span className="failure-url">{failure.url}</span>}
-                <span className="failure-reason">{failureReason(failure.reason)}</span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-    </section>
+        )}
+
+        {failures.length > 0 && (
+          <Collapsible id="results-failures" open={failuresOpen} onOpenChange={setFailuresOpen} className="rounded-lg border bg-card">
+            <CollapsibleTrigger
+              id="results-failures-summary"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ChevronRightIcon
+                aria-hidden="true"
+                className={cn('size-4 text-muted-foreground transition-transform motion-reduce:transition-none', failuresOpen && 'rotate-90')}
+              />
+              {tp('failuresSummary', failures.length, fmt(failures.length))}
+            </CollapsibleTrigger>
+            <CollapsibleContent className="flex flex-col gap-3 px-3 pt-1 pb-3">
+              <div>
+                <Button type="button" id="btn-copy-failures" variant="outline" size="sm" onClick={() => void copyFailures()}>
+                  <CopyIcon data-icon="inline-start" />
+                  {t('failuresCopy')}
+                </Button>
+              </div>
+              <ScrollArea className="rounded-md border bg-background [&>[data-slot=scroll-area-viewport]]:max-h-52">
+                <ul id="results-failures-list" className="flex flex-col divide-y px-2.5">
+                  {failures.map((failure, i) => (
+                    <li key={i} className="flex flex-col gap-0.5 py-2 text-sm">
+                      <span className="truncate font-medium">{failure.title || failure.url || failureKind(failure.kind)}</span>
+                      {failure.title && failure.url && <span className="truncate text-xs text-muted-foreground">{failure.url}</span>}
+                      <span className="text-xs text-muted-foreground">{failureReason(failure.reason)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </ScrollArea>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+      </section>
+
+      <div className="grid grid-cols-2 gap-2 border-t bg-background px-4 py-3">
+        <Button type="button" id="btn-results-another" variant="outline" size="lg" onClick={onRestoreAnother}>
+          {t('resultsRestoreAnother')}
+        </Button>
+        <Button type="button" id="btn-results-dismiss" size="lg" onClick={onDismiss}>
+          {t('resultsDone')}
+        </Button>
+      </div>
+    </>
   );
 }

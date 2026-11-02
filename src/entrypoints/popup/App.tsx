@@ -260,7 +260,7 @@ export function App() {
           <TabsContent value="export" forceMount className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
             <ExportPanel setStatus={setStatus} />
           </TabsContent>
-          <TabsContent value="import" forceMount className="content-area data-[state=inactive]:hidden">
+          <TabsContent value="import" forceMount className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
             <ImportPanel
               active={tab === 'import'}
               browser={browser}
@@ -277,11 +277,12 @@ export function App() {
               }}
             />
           </TabsContent>
-          <TabsContent value="backups" forceMount className="content-area data-[state=inactive]:hidden">
+          <TabsContent value="backups" forceMount className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
             <BackupsPanel
               active={tab === 'backups'}
               browser={browser}
               restoreRunning={running}
+              setStatus={setStatus}
               onRestore={({ data, warnings, date }) => {
                 importer.reset();
                 importer.accept({ data, label: t('formatSnapshot'), warnings, message: t('fileLoadedSnapshot', date) });

@@ -984,8 +984,8 @@
     }
   },
   "snapshotsTitle": {
-    "message": "Saved snapshots",
-    "description": "Heading of the snapshot list card."
+    "message": "Snapshots",
+    "description": "Heading above the snapshot list in the Backups tab."
   },
   "backupNow": {
     "message": "Back up now",
@@ -1010,8 +1010,8 @@
     }
   },
   "snapshotsEmpty": {
-    "message": "No snapshots yet. Use “Back up now” to create one.",
-    "description": "Empty state of the snapshot list."
+    "message": "Use “Back up now” to save your current tabs and bookmarks.",
+    "description": "Description of the empty snapshot list."
   },
   "snapshotsNote": {
     "message": "Snapshots are stored in this browser only.",
@@ -1290,5 +1290,99 @@
   "menuMore": {
     "message": "More actions",
     "description": "Accessible name of the ⋯ menu button in the header."
+  },
+  "snapshotsEmptyTitle": {
+    "message": "No snapshots yet",
+    "description": "Title of the empty state in the snapshot list."
+  },
+  "freqHourlyShort": {
+    "message": "Hourly",
+    "description": "Short label of the hourly backup frequency (toggle button, summary)."
+  },
+  "freqDailyShort": {
+    "message": "Daily",
+    "description": "Short label of the daily backup frequency (toggle button, summary)."
+  },
+  "freqWeeklyShort": {
+    "message": "Weekly",
+    "description": "Short label of the weekly backup frequency (toggle button, summary)."
+  },
+  "autoSummaryOn": {
+    "message": "$FREQ$ · keep $COUNT$",
+    "description": "Badge on the collapsed Automatic backups section when enabled, e.g. \"Daily · keep 7\".",
+    "placeholders": {
+      "freq": {
+        "content": "$1",
+        "example": "Daily"
+      },
+      "count": {
+        "content": "$2",
+        "example": "7"
+      }
+    }
+  },
+  "autoSummaryOff": {
+    "message": "Off",
+    "description": "Badge on the collapsed Automatic backups section when automatic backups are off."
+  },
+  "importChooseButton": {
+    "message": "Choose file",
+    "description": "Button in the empty Import state that opens the file picker."
+  },
+  "importChooseAnother": {
+    "message": "Choose another file",
+    "description": "Small button in the Import summary that opens the file picker to load a different backup."
+  },
+  "importDropHere": {
+    "message": "Drop the file to load it",
+    "description": "Overlay text shown while a file is dragged over the Import tab."
+  },
+  "importButtonBoth": {
+    "message": "Restore tabs & bookmarks",
+    "description": "Main Import button when both tabs and bookmarks will be restored."
+  },
+  "importButtonTabs_one": {
+    "message": "Restore $COUNT$ tab",
+    "description": "Main Import button, tabs only (singular). COUNT is the number of selected tabs.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "importButtonTabs_other": {
+    "message": "Restore $COUNT$ tabs",
+    "description": "Main Import button, tabs only (plural). COUNT is the number of selected tabs.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "importButtonBookmarks": {
+    "message": "Restore bookmarks",
+    "description": "Main Import button when only bookmarks will be restored."
+  },
+  "importNothingSelected": {
+    "message": "Select at least one tab or the bookmarks to restore.",
+    "description": "Hint under the disabled Import button when nothing is selected to restore."
+  },
+  "replaceConfirmTitle": {
+    "message": "Replace your bookmarks?",
+    "description": "Title of the confirmation dialog shown before the Replace existing bookmark strategy runs."
+  },
+  "importRunningNote": {
+    "message": "You can close this popup. The restore keeps running in the background.",
+    "description": "Note shown while a restore is running."
+  },
+  "resultsDone": {
+    "message": "Done",
+    "description": "Button that closes the restore results."
+  },
+  "resultsRestoreAnother": {
+    "message": "Restore another file",
+    "description": "Button on the restore results that clears the loaded backup so another file can be chosen."
   }
 }
