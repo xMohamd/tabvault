@@ -23,9 +23,34 @@ const $ = <T extends HTMLElement = HTMLElement>(selector: string): T => {
   return el;
 };
 
-async function openTab(user: ReturnType<typeof userEvent.setup>, name: 'export' | 'import' | 'backups') {
-  await user.click($(`#tab-${name}`));
+const TAB_LABEL = { export: 'tabExport', import: 'tabImport', backups: 'tabBackups' } as const;
+type TabName = keyof typeof TAB_LABEL;
+/** Tabs are found by role and accessible name (Radix generates their ids). */
+const tabEl = (name: TabName): HTMLElement => screen.getByRole('tab', { name: t(TAB_LABEL[name]) });
+
+async function openTab(user: ReturnType<typeof userEvent.setup>, name: TabName) {
+  await user.click(tabEl(name));
 }
+
+/** Outcome messages are toasts; returns the toast element holding `text`. */
+async function findToast(text: string): Promise<HTMLElement> {
+  // The same text may also be shown in the page (e.g. the results card).
+  return waitFor(() => {
+    const toast = screen
+      .getAllByText(text)
+      .map((node) => node.closest<HTMLElement>('[data-sonner-toast]'))
+      .find((el): el is HTMLElement => el !== null);
+    if (!toast) throw new Error(`No toast says "${text}"`);
+    return toast;
+  });
+}
+
+/** Collapsed settings sections (Filters, Options) must be opened before their controls exist. */
+async function openSection(user: ReturnType<typeof userEvent.setup>, titleKey: string) {
+  await user.click(screen.getByRole('button', { name: new RegExp(t(titleKey)) }));
+}
+
+const isOn = (selector: string) => $(selector).getAttribute('aria-checked') === 'true';
 
 async function chooseFile(user: ReturnType<typeof userEvent.setup>, file: File) {
   await openTab(user, 'import');
@@ -43,20 +68,20 @@ describe('tabs', () => {
   it('uses a roving tabindex and arrow keys', async () => {
     const user = userEvent.setup();
     renderApp();
-    expect($('#tab-export').getAttribute('tabindex')).toBe('0');
-    expect($('#tab-import').getAttribute('tabindex')).toBe('-1');
+    expect(tabEl('export').getAttribute('aria-selected')).toBe('true');
 
-    $('#tab-export').focus();
+    await user.click(tabEl('export'));
     await user.keyboard('{ArrowRight}');
-    expect($('#tab-import').getAttribute('aria-selected')).toBe('true');
-    expect(document.activeElement).toBe($('#tab-import'));
-    expect($('#import-panel').hidden).toBe(false);
-    expect($('#export-panel').hidden).toBe(true);
+    expect(tabEl('import').getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(tabEl('import'));
+    const panelOf = (name: TabName) => document.getElementById(tabEl(name).getAttribute('aria-controls') ?? '');
+    expect(panelOf('import')?.getAttribute('data-state')).toBe('active');
+    expect(panelOf('export')?.getAttribute('data-state')).toBe('inactive');
 
     await user.keyboard('{End}');
-    expect($('#tab-backups').getAttribute('aria-selected')).toBe('true');
+    expect(tabEl('backups').getAttribute('aria-selected')).toBe('true');
     await user.keyboard('{ArrowRight}');
-    expect($('#tab-export').getAttribute('aria-selected')).toBe('true');
+    expect(tabEl('export').getAttribute('aria-selected')).toBe('true');
   });
 
   it('shows the detected browser from GET_STATE', async () => {
@@ -77,7 +102,6 @@ describe('export', () => {
 
     expect(button.disabled).toBe(true);
     expect($('#export-empty-hint').textContent).toBe(t('exportNothingSelected'));
-    expect($('#export-empty-hint').classList.contains('hidden')).toBe(false);
   });
 
   it('sends EXPORT with the chosen options and reports the outcome', async () => {
@@ -87,8 +111,10 @@ describe('export', () => {
     });
     renderApp();
 
+    await openSection(user, 'exportFiltersLabel');
     await user.type($('#ex-filter-domain'), 'github.com, wikipedia.org');
     await user.click($('#ex-bookmarks')); // off
+    await openSection(user, 'exportOptionsSummary');
     await user.click($('#ex-favicons')); // on (default off)
     await user.click($('#btn-export'));
 
@@ -105,10 +131,8 @@ describe('export', () => {
       },
       saveAs: true,
     });
-    const expected = t('exportDone', ['7', '2']);
-    await waitFor(() => expect($('#export-result').textContent).toBe(expected));
-    expect($('#status-msg').textContent).toBe(expected);
-    expect($('#status-msg').classList.contains('is-success')).toBe(true);
+    const toast = await findToast(t('exportDone', ['7', '2']));
+    expect(toast.getAttribute('data-type')).toBe('success');
   });
 
   it('has a bookmarklets option under Bookmarks that follows it', async () => {
@@ -118,8 +142,8 @@ describe('export', () => {
     });
     renderApp();
 
-    const box = $<HTMLInputElement>('#ex-bookmarklets');
-    expect(box.checked).toBe(true);
+    const box = $<HTMLButtonElement>('#ex-bookmarklets');
+    expect(isOn('#ex-bookmarklets')).toBe(true);
     await user.click($('#ex-bookmarks')); // bookmarks off -> option unavailable
     expect(box.disabled).toBe(true);
     await user.click($('#ex-bookmarks')); // back on
@@ -134,13 +158,29 @@ describe('export', () => {
     });
   });
 
+  it('shows live counts and a button that says what will be exported', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    const preview = screen.getByRole('region', { name: t('exportPreviewLabel') });
+    await waitFor(() => expect(within(preview).getByText('7')).toBeTruthy());
+    expect(within(preview).getByText('12')).toBeTruthy();
+    expect($('#btn-export').textContent).toBe(t('exportButtonBoth'));
+
+    await user.click($('#ex-bookmarks')); // tabs only
+    await waitFor(() => expect($('#btn-export').textContent).toBe(tp('exportButtonTabs', 7, '7')));
+    expect((callsOf('EXPORT_PREVIEW').at(-1) as { options: Record<string, unknown> }).options).toMatchObject({
+      includeTabs: true,
+      includeBookmarks: false,
+    });
+  });
+
   it('shows the error when the export fails', async () => {
     const user = userEvent.setup();
     routeSend({ EXPORT: () => ({ ok: false, error: 'disk full' }) });
     renderApp();
     await user.click($('#btn-export'));
-    await waitFor(() => expect($('#export-result').textContent).toBe(t('exportFailed', 'disk full')));
-    expect($('#export-result').classList.contains('is-error')).toBe(true);
+    const toast = await findToast(t('exportFailed', 'disk full'));
+    expect(toast.getAttribute('data-type')).toBe('error');
   });
 });
 
@@ -289,10 +329,9 @@ describe('import', () => {
     const running: ImportState = { status: 'running', phase: 'tabs', current: 5, total: 10, message: '' };
     act(() => broadcast({ type: 'IMPORT_STATE', state: running }));
 
-    expect($('#progress-bar').classList.contains('hidden')).toBe(false);
     expect($('#progress-bar').getAttribute('aria-valuenow')).toBe('50');
     expect($('#progress-text').textContent).toBe('5 / 10');
-    expect($('#status-msg').textContent).toBe(t('phaseTabs'));
+    expect(screen.getByText(t('phaseTabs'))).toBeTruthy();
     expect($('#btn-cancel').classList.contains('hidden')).toBe(false);
     expect($<HTMLInputElement>('#import-file').disabled).toBe(true);
 
@@ -319,10 +358,10 @@ describe('import', () => {
     };
     act(() => broadcast({ type: 'IMPORT_STATE', state: done }));
 
-    expect($('#progress-bar').classList.contains('hidden')).toBe(true);
+    expect(document.querySelector('#progress-bar')).toBeNull();
     expect($('#results-card')).toBeTruthy();
     expect($('#results-summary').textContent).toBe(t('statusImportDoneIssues', ['8', '0']));
-    expect($('#status-msg').textContent).toBe(t('statusImportDoneIssues', ['8', '0']));
+    await findToast(t('statusImportDoneIssues', ['8', '0']));
     expect($('#results-stats').textContent).toContain('8');
     expect($('#results-failures-summary').textContent).toBe(tp('failuresSummary', 1, '1'));
     expect($('#results-failures-list').textContent).toContain('Settings');
@@ -342,9 +381,9 @@ describe('import', () => {
       }),
     });
     renderApp();
-    await waitFor(() => expect($('#tab-import').getAttribute('aria-selected')).toBe('true'));
+    await waitFor(() => expect(tabEl('import').getAttribute('aria-selected')).toBe('true'));
     expect($('#progress-text').textContent).toBe('1 / 4');
-    expect($('#status-msg').textContent).toBe(t('phaseBookmarks'));
+    expect(screen.getByText(t('phaseBookmarks'))).toBeTruthy();
   });
 
   it('cancels a running restore', async () => {
@@ -441,7 +480,7 @@ describe('backups', () => {
     const item = await waitFor(() => $('#snapshot-list > li'));
     await user.click(within(item).getByText(t('snapshotRestore')));
 
-    await waitFor(() => expect($('#tab-import').getAttribute('aria-selected')).toBe('true'));
+    await waitFor(() => expect(tabEl('import').getAttribute('aria-selected')).toBe('true'));
     expect($('#summary-format').textContent).toBe(t('summaryFormat', t('formatSnapshot')));
     expect($('#preview-total').textContent).toBe(t('previewSelected', '5'));
   });

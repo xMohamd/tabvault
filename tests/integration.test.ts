@@ -194,3 +194,20 @@ describe('Chromium export restored into Firefox', () => {
         assert.ok(titles(fb.roots.other).includes('Folder'), 'other bookmarks in unfiled');
     });
 });
+
+describe('export preview', () => {
+    it('EXPORT_PREVIEW counts without downloading', async () => {
+        fb = createFakeBrowser({ family: 'chromium' });
+        background.main();
+        fb.seedWindow({}, ['https://a.example/', 'https://b.example/']);
+        fb.seedBookmark(fb.roots.bar, { title: 'JS', url: 'javascript:void(0)' });
+        const handler = fb.listeners.onMessage[0];
+        const reply = await new Promise((resolve) => {
+            handler({ type: 'EXPORT_PREVIEW', options: { includeTabs: true, includeBookmarks: true } }, { id: 'fake-extension-id' }, resolve);
+        });
+        assert.equal(reply.ok, true);
+        assert.equal(reply.stats.tabs, 2);
+        assert.equal(reply.stats.bookmarklets, 1);
+        assert.equal(fb.downloads.length, 0);
+    });
+});

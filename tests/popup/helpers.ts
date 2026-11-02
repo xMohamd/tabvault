@@ -63,6 +63,7 @@ export function routeSend(handlers: Record<string, Handler> = {}) {
   const sendMock = vi.mocked(send);
   const defaults: Record<string, Handler> = {
     GET_STATE: () => ({ ok: true, browser: CHROME_INFO, importState: IDLE_STATE }),
+    EXPORT_PREVIEW: () => ({ ok: true, stats: { windows: 2, tabs: 7, groups: 1, bookmarks: 12, bookmarklets: 1, skippedTabs: 0 } }),
     SNAPSHOTS_LIST: () => ({ ok: true, snapshots: [], settings: DEFAULT_SETTINGS, lastRun: null }),
     IMPORT_START: () => ({ ok: true }),
     IMPORT_CANCEL: () => ({ ok: true }),

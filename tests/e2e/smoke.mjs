@@ -160,7 +160,7 @@ ok(start2.ok && fin.status === 'done' && lazy >= 3, `lazy mode tabs: ${lazy}`);
         await sleep(1000);
         const r = await cdp('Runtime.evaluate', { expression: '[innerWidth, innerHeight]', returnByValue: true }, ps);
         const [w, h] = r.result.result.value;
-        ok(w >= 480 && h >= 500, `action popup size ${w}x${h}`);
+        ok(w >= 400 && h >= 560, `action popup size ${w}x${h}`);
     } else {
         ok(false, 'action popup did not open');
     }
