@@ -1206,5 +1206,89 @@
         "example": "3"
       }
     }
+  },
+  "exportBookmarkletsPrimary": {
+    "message": "Bookmarklets",
+    "description": "Switch under Bookmarks on Export: keep bookmarks whose address is a javascript: script."
+  },
+  "exportBookmarkletsSecondary": {
+    "message": "Bookmarks that run a script (javascript: addresses)",
+    "description": "Explains what a bookmarklet is, under the Bookmarklets switch."
+  },
+  "exportButtonBoth": {
+    "message": "Export tabs & bookmarks",
+    "description": "Main Export button when both tabs and bookmarks are selected."
+  },
+  "exportButtonTabs_one": {
+    "message": "Export $COUNT$ tab",
+    "description": "Main Export button, tabs only (singular).",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "42"
+      }
+    }
+  },
+  "exportButtonTabs_other": {
+    "message": "Export $COUNT$ tabs",
+    "description": "Main Export button, tabs only (plural).",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "42"
+      }
+    }
+  },
+  "exportButtonBookmarks_one": {
+    "message": "Export $COUNT$ bookmark",
+    "description": "Main Export button, bookmarks only (singular).",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "42"
+      }
+    }
+  },
+  "exportButtonBookmarks_other": {
+    "message": "Export $COUNT$ bookmarks",
+    "description": "Main Export button, bookmarks only (plural).",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "42"
+      }
+    }
+  },
+  "exportPreviewLabel": {
+    "message": "What will be saved",
+    "description": "Accessible name of the live counts at the top of Export."
+  },
+  "filtersOff": {
+    "message": "Off",
+    "description": "Badge on the collapsed Filters section when no filter is set."
+  },
+  "optionsOn_one": {
+    "message": "$COUNT$ on",
+    "description": "Badge on the collapsed Options section (singular).",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "42"
+      }
+    }
+  },
+  "optionsOn_other": {
+    "message": "$COUNT$ on",
+    "description": "Badge on the collapsed Options section (plural).",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "42"
+      }
+    }
+  },
+  "menuMore": {
+    "message": "More actions",
+    "description": "Accessible name of the ⋯ menu button in the header."
   }
 }

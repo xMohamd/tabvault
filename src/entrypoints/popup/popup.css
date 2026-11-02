@@ -47,8 +47,8 @@
   --border-width: 1px;
 
   /* Layout */
-  --popup-width: 500px;
-  --popup-height: 600px;
+  --popup-width: 420px;
+  --popup-height: 580px;
   --content-max-width: 460px;
   --narrow-breakpoint: 420px;
   --control-size: 20px;

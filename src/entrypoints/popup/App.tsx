@@ -7,21 +7,43 @@
  *
  * The same page also runs as a full tab: popup.html?view=tab#import.
  */
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
+import {
+  DownloadIcon,
+  ExternalLinkIcon,
+  HistoryIcon,
+  MoonIcon,
+  MoreHorizontalIcon,
+  ClipboardCopyIcon,
+  SunIcon,
+  UploadIcon,
+  type LucideIcon,
+} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Toaster } from '@/components/ui/sonner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { browser as ext } from 'wxt/browser';
 import { send } from '@/lib/messaging';
 import { t } from '@/lib/i18n';
 import { isTabView, resolveTheme, toggleTheme } from '@/lib/theme';
 import type { ImportState } from '@/lib/types';
-import { copyText, cx, fmt, messageOf, tabFromHash, TAB_ORDER, TONE, errorDetail, type Message, type SetStatus, type TabName, type Tone } from './shared';
+import { copyText, fmt, messageOf, tabFromHash, TONE, errorDetail, type SetStatus, type TabName, type Tone } from './shared';
 import { useImportCandidate } from './hooks/useImportCandidate';
 import { useWorkerSync } from './hooks/useWorkerSync';
 import { ExportPanel } from './components/ExportPanel';
 import { ImportPanel } from './components/ImportPanel';
 import { BackupsPanel } from './components/BackupsPanel';
 import { describeFinish } from './components/ResultsCard';
-
-/** getURL is typed per generated public path; a plain string signature keeps this independent of that. */
 
 const IDLE: ImportState = { status: 'idle', current: 0, total: 0, message: '' };
 const PERCENT_MAX = 100;
@@ -34,23 +56,34 @@ const PHASE_KEYS: Record<string, string> = {
 const isRunning = (state: ImportState) => state.status === 'running' || state.status === 'cancelling';
 const isFinished = (state: ImportState) => state.status === 'done' || state.status === 'cancelled' || state.status === 'error';
 
-const TABS: Array<{ name: TabName; labelKey: string; paths: string[]; circle?: boolean }> = [
-  { name: 'export', labelKey: 'tabExport', paths: ['M12 16V4M8 7.5 12 3.5l4 4', 'M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15'] },
-  { name: 'import', labelKey: 'tabImport', paths: ['M12 3.5v12M8 12l4 4 4-4', 'M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15'] },
-  { name: 'backups', labelKey: 'tabBackups', circle: true, paths: ['M12 7.5V12l3 2'] },
+const TABS: Array<{ name: TabName; labelKey: string; icon: LucideIcon }> = [
+  { name: 'export', labelKey: 'tabExport', icon: UploadIcon },
+  { name: 'import', labelKey: 'tabImport', icon: DownloadIcon },
+  { name: 'backups', labelKey: 'tabBackups', icon: HistoryIcon },
 ];
+
+const TOAST_BY_TONE: Record<Tone, (text: string) => void> = {
+  'is-error': (text) => toast.error(text),
+  'is-success': (text) => toast.success(text),
+  'is-warning': (text) => toast.warning(text),
+};
 
 export function App() {
   const [tabView] = useState(isTabView);
   const [tab, setTab] = useState<TabName>(() => tabFromHash() ?? 'export');
-  const [status, setStatusMessage] = useState<Message>({ text: t('statusReady') });
+  /** Shown in the progress strip while a restore runs. */
+  const [progressMessage, setProgressMessage] = useState('');
   const [importState, setImportState] = useState<ImportState>(IDLE);
   const [dismissedFinish, setDismissedFinish] = useState<string | null>(null);
   const [dark, setDark] = useState(() => resolveTheme() === 'dark');
   const reportedFinish = useRef<string | null>(null);
   const importer = useImportCandidate();
 
-  const setStatus: SetStatus = useCallback((text, tone) => setStatusMessage({ text, tone }), []);
+  /** Outcomes are toasts; ongoing progress lives in the progress strip instead. */
+  const setStatus: SetStatus = useCallback((text, tone) => {
+    if (tone) TOAST_BY_TONE[tone](text);
+    else toast(text);
+  }, []);
 
   /** Progress and finish reporting for every state the worker tells us about. */
   const applyImportState = useCallback(
@@ -60,10 +93,10 @@ export function App() {
         setDismissedFinish(null);
         reportedFinish.current = null;
         if (state.status === 'cancelling') {
-          setStatus(t('statusCancelling'));
+          setProgressMessage(t('statusCancelling'));
         } else {
           const phaseKey = state.phase ? PHASE_KEYS[state.phase] : undefined;
-          setStatus(phaseKey ? t(phaseKey) : state.message || t('statusRestoring'));
+          setProgressMessage(phaseKey ? t(phaseKey) : state.message || t('statusRestoring'));
         }
         return;
       }
@@ -117,21 +150,6 @@ export function App() {
     [tabView, setStatus],
   );
 
-  function handleTabKeydown(event: KeyboardEvent<HTMLButtonElement>, current: TabName) {
-    const index = TAB_ORDER.indexOf(current);
-    let next: number | null = null;
-    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (index + 1) % TAB_ORDER.length;
-    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (index - 1 + TAB_ORDER.length) % TAB_ORDER.length;
-    else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = TAB_ORDER.length - 1;
-    if (next === null) return;
-    event.preventDefault();
-    const target = TAB_ORDER[next];
-    if (!target) return;
-    setTab(target);
-    document.getElementById(`tab-${target}`)?.focus();
-  }
-
   async function copyDiagnostics() {
     const response = await send('DIAGNOSTICS');
     if (!response.ok) {
@@ -154,134 +172,126 @@ export function App() {
   const themeLabel = dark ? t('themeToLight') : t('themeToDark');
 
   return (
-    <div className="app-container">
-      <header className="app-header">
-        <img src="/icon/48.png" alt="" className="app-logo" width={32} height={32} />
-        <div className="title-group">
-          <h1>{t('extName')}</h1>
-          <p className="browser-badge" id="browser-badge">
+    <TooltipProvider>
+      <div className="flex h-full flex-col bg-background text-foreground">
+        <header className="flex items-center gap-2.5 border-b px-4 py-2.5">
+          <img src="/icon/48.png" alt="" className="size-7" width={28} height={28} />
+          <h1 className="text-sm font-semibold">{t('extName')}</h1>
+          <Badge id="browser-badge" variant="outline" className="font-normal text-muted-foreground">
             {browser.name || t('unknownBrowser')}
-          </p>
-        </div>
-        <button
-          type="button"
-          id="btn-open-tab"
-          className="btn-icon"
-          aria-label={t('openInTab')}
-          title={t('openInTab')}
-          hidden={tabView}
-          onClick={() => void openInTab(tab)}
-        >
-          <svg className="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M14 4h6v6M20 4l-8.5 8.5" />
-            <path d="M18 14v4.5A1.5 1.5 0 0 1 16.5 20h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          id="btn-theme"
-          className="btn-icon"
-          aria-label={themeLabel}
-          title={themeLabel}
-          onClick={() => {
-            toggleTheme();
-            setDark(resolveTheme() === 'dark');
-          }}
-        >
-          <svg className="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
-          </svg>
-          <svg className="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <circle cx="12" cy="12" r="4.2" />
-            <path d="M12 2.6v2.2M12 19.2v2.2M4.2 12H2M22 12h-2.2M6.5 6.5 4.9 4.9M19.1 19.1l-1.6-1.6M17.5 6.5l1.6-1.6M4.9 19.1l1.6-1.6" />
-          </svg>
-        </button>
-      </header>
+          </Badge>
+          <div className="ml-auto flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  id="btn-theme"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={themeLabel}
+                  onClick={() => {
+                    toggleTheme();
+                    setDark(resolveTheme() === 'dark');
+                  }}
+                >
+                  {dark ? <SunIcon /> : <MoonIcon />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{themeLabel}</TooltipContent>
+            </Tooltip>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button id="btn-menu" variant="ghost" size="icon-sm" aria-label={t('menuMore')}>
+                  <MoreHorizontalIcon />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuGroup>
+                  {!tabView && (
+                    <DropdownMenuItem id="btn-open-tab" onSelect={() => void openInTab(tab)}>
+                      <ExternalLinkIcon />
+                      {t('openInTab')}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem id="btn-diagnostics" onSelect={() => void copyDiagnostics()}>
+                    <ClipboardCopyIcon />
+                    {t('diagnosticsButton')}
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </header>
 
-      <div className="tabs-container">
-        <div className="tabs" role="tablist" aria-label={t('tabsAriaLabel')}>
-          {TABS.map(({ name, labelKey, paths, circle }) => {
-            const selected = tab === name;
-            return (
-              <button
-                key={name}
-                type="button"
-                className={cx('tab-btn', selected && 'active')}
-                id={`tab-${name}`}
-                role="tab"
-                aria-selected={selected}
-                aria-controls={`${name}-panel`}
-                // Only the selected tab stays in the tab order (roving tabindex).
-                tabIndex={selected ? 0 : -1}
-                onClick={() => setTab(name)}
-                onKeyDown={(event) => handleTabKeydown(event, name)}
-              >
-                <svg className="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  {circle && <circle cx="12" cy="12" r="8.5" />}
-                  {paths.map((d) => (
-                    <path key={d} d={d} />
-                  ))}
-                </svg>
-                <span>{t(labelKey)}</span>
-              </button>
-            );
-          })}
-        </div>
+        {running && (
+          <div className="flex flex-col gap-1.5 border-b px-4 py-2">
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span className="truncate text-muted-foreground">{progressMessage}</span>
+              <span id="progress-text" className="tabular-nums text-muted-foreground">
+                {total > 0 ? `${fmt(current)} / ${fmt(total)}` : ''}
+              </span>
+            </div>
+            <div
+              id="progress-bar"
+              className="h-1.5 overflow-hidden rounded-full bg-muted"
+              role="progressbar"
+              aria-label={t('progressLabel')}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(percent)}
+            >
+              <div className="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none" style={{ width: `${percent}%` }} />
+            </div>
+          </div>
+        )}
+
+        <Tabs value={tab} onValueChange={(value) => setTab(value as TabName)} className="flex min-h-0 flex-1 flex-col gap-0">
+          <div className="px-4 pt-3">
+            <TabsList aria-label={t('tabsAriaLabel')} className="w-full">
+              {TABS.map(({ name, labelKey, icon: Icon }) => (
+                <TabsTrigger key={name} value={name} className="flex-1">
+                  <Icon />
+                  {t(labelKey)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+
+          {/* forceMount keeps each tab's state (a loaded backup, typed filters) while switching. */}
+          <TabsContent value="export" forceMount className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
+            <ExportPanel setStatus={setStatus} />
+          </TabsContent>
+          <TabsContent value="import" forceMount className="content-area data-[state=inactive]:hidden">
+            <ImportPanel
+              active={tab === 'import'}
+              browser={browser}
+              importState={importState}
+              resultsVisible={resultsVisible}
+              isTabView={tabView}
+              importer={importer}
+              setStatus={setStatus}
+              onDismissResults={() => setDismissedFinish(finishKey)}
+              openInTab={(name) => void openInTab(name)}
+              onStartAccepted={() => {
+                // The worker's broadcast normally arrives first; this only covers a missed one.
+                if (!running) applyImportState({ ...importState, status: 'running', phase: 'starting', current: 0, total: 0 });
+              }}
+            />
+          </TabsContent>
+          <TabsContent value="backups" forceMount className="content-area data-[state=inactive]:hidden">
+            <BackupsPanel
+              active={tab === 'backups'}
+              browser={browser}
+              restoreRunning={running}
+              onRestore={({ data, warnings, date }) => {
+                importer.reset();
+                importer.accept({ data, label: t('formatSnapshot'), warnings, message: t('fileLoadedSnapshot', date) });
+                setTab('import');
+              }}
+            />
+          </TabsContent>
+        </Tabs>
+        <Toaster position="top-center" richColors closeButton duration={4000} />
       </div>
-
-      <main className="content-area">
-        <ExportPanel active={tab === 'export'} setStatus={setStatus} />
-        <ImportPanel
-          active={tab === 'import'}
-          browser={browser}
-          importState={importState}
-          resultsVisible={resultsVisible}
-          isTabView={tabView}
-          importer={importer}
-          setStatus={setStatus}
-          onDismissResults={() => setDismissedFinish(finishKey)}
-          openInTab={(name) => void openInTab(name)}
-          onStartAccepted={() => {
-            // The worker's broadcast normally arrives first; this only covers a missed one.
-            if (!running) applyImportState({ ...importState, status: 'running', phase: 'starting', current: 0, total: 0 });
-          }}
-        />
-        <BackupsPanel
-          active={tab === 'backups'}
-          browser={browser}
-          restoreRunning={running}
-          onRestore={({ data, warnings, date }) => {
-            importer.reset();
-            importer.accept({ data, label: t('formatSnapshot'), warnings, message: t('fileLoadedSnapshot', date) });
-            setTab('import');
-          }}
-        />
-      </main>
-
-      <footer className="app-footer">
-        <div className="footer-content">
-          <span id="status-msg" role="status" className={status.tone as Tone | undefined} title={status.text}>
-            {status.text}
-          </span>
-          <span id="progress-text" className={cx(!running && 'hidden')}>
-            {running && total > 0 ? `${fmt(current)} / ${fmt(total)}` : ''}
-          </span>
-          <button type="button" id="btn-diagnostics" className="btn-link small" onClick={() => void copyDiagnostics()}>
-            {t('diagnosticsButton')}
-          </button>
-        </div>
-        <div
-          id="progress-bar"
-          className={cx('progress-bar', !running && 'hidden')}
-          role="progressbar"
-          aria-label={t('progressLabel')}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(percent)}
-        >
-          <div className="fill" style={{ width: `${percent}%` }} />
-        </div>
-      </footer>
-    </div>
+    </TooltipProvider>
   );
 }

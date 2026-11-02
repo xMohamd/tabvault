@@ -93,7 +93,8 @@ export function Panel({
   children: ReactNode;
 }) {
   return (
-    <section id={`${name}-panel`} className={cx('panel', active && 'active')} role="tabpanel" aria-labelledby={`tab-${name}`} hidden={!active}>
+    // The shell's TabsContent provides the tabpanel role and hides inactive panels.
+    <section id={`${name}-panel`} className="panel active" data-active={active || undefined}>
       {children}
     </section>
   );

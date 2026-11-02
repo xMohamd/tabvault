@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { t } from '@/lib/i18n';
 import { initTheme } from '@/lib/theme';
+import '@/assets/globals.css';
 import './popup.css';
 import { App } from './App';
 
