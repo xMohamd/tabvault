@@ -5,7 +5,7 @@
 import { BackupFormatError, emptyBackup, normalizeBackup, type Backup } from '../schema';
 import { assertSize, isObject, TabBudget, makeTab, markTruncated } from './common';
 import { convertOneTab, looksLikeOneTab } from './onetab';
-import { convertSessionBuddy, looksLikeSessionBuddy } from './session-buddy';
+import { convertSessionBuddy, isSessionBuddyBackup, looksLikeSessionBuddy } from './session-buddy';
 import { convertNetscapeHtml, looksLikeNetscapeHtml } from './netscape-html';
 import { convertFirefoxBookmarks, looksLikeFirefoxBookmarks } from './firefox-bookmarks';
 
@@ -95,7 +95,8 @@ export function parseBackupFile(text: string, ctx: ParseContext = {}): ParsedBac
       };
     }
     if (looksLikeSessionBuddy(json)) {
-      return { data: finish(convertSessionBuddy(json)), format: 'session-buddy', label: 'Session Buddy export' };
+      const label = isSessionBuddyBackup(json) ? 'Session Buddy backup' : 'Session Buddy export';
+      return { data: finish(convertSessionBuddy(json)), format: 'session-buddy', label };
     }
     throw new BackupFormatError('Unrecognised JSON format.');
   }

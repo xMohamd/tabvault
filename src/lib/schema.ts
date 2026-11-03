@@ -35,6 +35,8 @@ export interface BackupGroup {
 }
 
 export interface BackupWindow {
+  /** Optional label (e.g. a Session Buddy collection/folder name); shown in the import preview. */
+  title?: string;
   ungroupedTabs: BackupTab[];
   groups: BackupGroup[];
   state?: WindowState;
@@ -154,6 +156,7 @@ function normalizeWindow(raw: unknown, warnings: NormalizeWarnings): BackupWindo
     if (v !== undefined) win[k] = v;
   }
   if (raw.focused === true) win.focused = true;
+  if (typeof raw.title === 'string' && raw.title.trim()) win.title = raw.title.trim().slice(0, 200);
   if (win.ungroupedTabs.length === 0 && win.groups.length === 0) return null;
   return win;
 }

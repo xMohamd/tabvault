@@ -3,6 +3,7 @@
  */
 
 import { BackupFormatError, type Backup, type BackupTab } from '../schema';
+import { unwrapPlaceholderUrl } from '../url-utils';
 
 /** Maximum accepted input size, in characters. */
 export const MAX_TEXT_LENGTH = 50 * 1024 * 1024;
@@ -10,6 +11,12 @@ export const MAX_TEXT_LENGTH = 50 * 1024 * 1024;
 export const MAX_TABS = 20000;
 
 const TAB_URL_RE = /^(?:https?|ftp|file):/i;
+/**
+ * Browser pages some browsers can reopen (e.g. chrome://settings in Chromium). They are kept
+ * so the restore step can decide per browser and list what it couldn't reopen, instead of
+ * silently dropping them here. Script and data URLs are never tabs.
+ */
+const BROWSER_PAGE_RE = /^(?:chrome|edge|brave|opera|vivaldi|about):/i;
 
 export const isObject = (v: unknown): v is Record<string, unknown> =>
   v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -47,14 +54,36 @@ export function isTabUrl(url: unknown): url is string {
 }
 
 /** Builds a native tab, or null when the URL is not allowed or the budget is exhausted. */
-export function makeTab(url: unknown, title: unknown, budget: TabBudget, pinned = false): BackupTab | null {
-  if (!isTabUrl(url)) return null;
+export interface MakeTabOptions {
+  /** Also keep browser pages (chrome://, about:, ...); used for structured tab exports. */
+  allowBrowserPages?: boolean;
+}
+
+/**
+ * Builds a tab, or null if the URL can't be a tab. Suspended-tab placeholders
+ * (tab suspender extensions' park/suspended pages) are unwrapped to the real address;
+ * the placeholder is kept in metadata.originalUrl.
+ */
+export function makeTab(
+  url: unknown,
+  title: unknown,
+  budget: TabBudget,
+  pinned = false,
+  options: MakeTabOptions = {},
+): BackupTab | null {
+  if (typeof url !== 'string') return null;
+  const original = url.trim();
+  const real = unwrapPlaceholderUrl(original);
+  const usable = isTabUrl(real) || (options.allowBrowserPages === true && BROWSER_PAGE_RE.test(real));
+  if (!usable) return null;
   if (!budget.take()) return null;
-  return {
-    url: url.trim(),
+  const tab: BackupTab = {
+    url: real,
     title: typeof title === 'string' ? title.trim() : '',
     pinned: pinned === true,
   };
+  if (real !== original) tab.metadata = { originalUrl: original };
+  return tab;
 }
 
 /** Marks a raw backup as truncated when the tab cap was hit. */
