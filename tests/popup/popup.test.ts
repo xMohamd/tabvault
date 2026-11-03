@@ -187,6 +187,9 @@ describe('export', () => {
 
 describe('import', () => {
   type User = ReturnType<typeof userEvent.setup>;
+  // Files are picked in the full-tab view (the popup redirects there); popup-mode tests opt out.
+  beforeEach(() => history.replaceState(null, '', '/?view=tab'));
+  const asPopup = () => history.replaceState(null, '', '/');
   const checkboxes = () => within($('#preview-tree')).getAllByRole<HTMLElement>('checkbox');
   const groupBox = () => within($('#preview-tree')).getByRole('checkbox', { name: tp('previewGroupLabel', 3, ['Work', '1', '3']) });
   const runningState: ImportState = { status: 'running', phase: 'tabs', current: 5, total: 10, message: '' };
@@ -243,6 +246,7 @@ describe('import', () => {
     });
 
     it('opens the full tab view instead of the file dialog on Firefox', async () => {
+      asPopup();
       const user = userEvent.setup();
       routeSend({
         GET_STATE: () => ({ ok: true, browser: { key: 'firefox', name: 'Firefox', family: 'firefox', features: {} }, importState: IDLE_STATE }),
@@ -253,6 +257,36 @@ describe('import', () => {
 
       // preventDefault() makes dispatchEvent return false: no dialog.
       expect(fireEvent.click($('#import-file'))).toBe(false);
+    });
+
+    it('opens the full tab view instead of the file dialog on Chrome too', async () => {
+      // Chrome closes the popup when the native file dialog takes focus (Linux and others),
+      // which destroys the input and loses the chosen file.
+      asPopup();
+      const user = userEvent.setup();
+      renderApp();
+      await waitFor(() => expect($('#browser-badge').textContent).toBe('Chrome'));
+      await openTab(user, 'import');
+      expect($('#btn-choose-file').textContent).toBe(t('importChooseInTab'));
+      expect($('#choose-in-tab-hint').textContent).toBe(t('importChooseInTabHint'));
+      expect(fireEvent.click($('#import-file'))).toBe(false);
+    });
+
+    it('still loads a file dropped on the popup (no dialog involved)', async () => {
+      asPopup();
+      const user = userEvent.setup();
+      renderApp();
+      await openTab(user, 'import');
+      fireEvent.drop($('#import-panel'), { dataTransfer: { files: [backupFile()] } });
+      await waitFor(() => expect($('#import-summary')).toBeTruthy());
+    });
+
+    it('offers the normal Choose file button in the tab view', async () => {
+      const user = userEvent.setup();
+      renderApp();
+      await openTab(user, 'import');
+      expect($('#btn-choose-file').textContent).toBe(t('importChooseButton'));
+      expect(document.querySelector('#choose-in-tab-hint')).toBeNull();
     });
 
     it('loads a file dropped on the panel and highlights the drop target', async () => {

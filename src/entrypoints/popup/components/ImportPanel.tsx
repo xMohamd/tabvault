@@ -4,7 +4,7 @@
  * The review stays mounted (hidden) behind the others so selections survive a restore.
  */
 import { useRef, useState, type DragEvent, type MouseEvent } from 'react';
-import { FileUpIcon } from 'lucide-react';
+import { ExternalLinkIcon, FileUpIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { t } from '@/lib/i18n';
@@ -110,9 +110,15 @@ export function ImportPanel(props: PanelProps) {
     }
   }
 
-  /** Firefox closes the popup when a file dialog opens, so the picker lives in the tab view. */
+  /**
+   * Browsers close an action popup when it loses focus, and opening the native file
+   * dialog takes focus away (always in Firefox; in Chrome on Linux and some other
+   * setups). The popup and its file input are destroyed, so the chosen file is lost.
+   * In popup mode the picker therefore lives in the full-tab view. Drag & drop onto
+   * the popup still works: it opens no dialog.
+   */
   function handleInputClick(event: MouseEvent<HTMLInputElement>) {
-    if (!isTabView && browser.key === 'firefox') {
+    if (!isTabView) {
       event.preventDefault();
       props.openInTab('import');
     }
@@ -164,8 +170,14 @@ export function ImportPanel(props: PanelProps) {
             </EmptyHeader>
             <EmptyContent>
               <Button type="button" id="btn-choose-file" onClick={chooseFile}>
-                {t('importChooseButton')}
+                {isTabView ? t('importChooseButton') : t('importChooseInTab')}
+                {!isTabView && <ExternalLinkIcon data-icon="inline-end" />}
               </Button>
+              {!isTabView && (
+                <p id="choose-in-tab-hint" className="text-xs text-muted-foreground">
+                  {t('importChooseInTabHint')}
+                </p>
+              )}
             </EmptyContent>
           </Empty>
           {fileInfo?.text && (

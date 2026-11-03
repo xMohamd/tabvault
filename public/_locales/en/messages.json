@@ -1320,5 +1320,13 @@
   "resultsRestoreAnother": {
     "message": "Restore another file",
     "description": "Button on the restore results that clears the loaded backup so another file can be chosen."
+  },
+  "importChooseInTab": {
+    "message": "Choose file in a tab",
+    "description": "Import button in the popup: opens the Import page in a full tab, where the file dialog works."
+  },
+  "importChooseInTabHint": {
+    "message": "Your browser closes this popup when a file dialog opens, so files are picked in a tab. You can also drop a file here.",
+    "description": "Explains, under the button, why choosing a file opens a tab."
   }
 }

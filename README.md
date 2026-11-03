@@ -32,6 +32,9 @@ APIs at runtime, not guessed from the browser name.
   placeholder page, or load normally. Bookmarks merge into the matching folders, go into a
   dated folder, or replace the existing ones (after a confirmation and an automatic
   safety snapshot). Anything that couldn't be restored is listed with the reason.
+  In the toolbar popup, choosing a file opens the Import page in a tab: browsers close a
+  popup when a file dialog takes focus, which would lose the file. Dropping a file onto
+  the popup works directly.
 - **Bookmarklets** (`javascript:` bookmarks) have their own option under Bookmarks on both
   Export and Import, on by default. The import summary says how many a file contains,
   since a bookmarklet runs code on the page you click it on. Restored tabs never open
