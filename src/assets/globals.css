@@ -97,3 +97,63 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 }
+
+/*
+ * Popup sizing. The popup gets FIXED pixel dimensions: Chrome sizes an action
+ * popup from its content while the popup viewport is still tiny, so anything
+ * relative to the viewport (vw/vh, max-width/max-height media queries) would
+ * lock it at that tiny size (it once rendered at 25x250). Viewport-relative
+ * sizing is only used in the full-tab view (popup.html?view=tab).
+ */
+:root {
+  --popup-width: 420px;
+  --popup-height: 580px;
+}
+
+body {
+  margin: 0;
+  width: var(--popup-width);
+  height: var(--popup-height);
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+}
+
+:root.is-tab-view body {
+  width: auto;
+  max-width: 720px;
+  height: 100vh;
+  margin-inline: auto;
+  border-inline: 1px solid var(--border);
+}
+
+/* Chrome / Firefox tab group colors, for the preview tree's group dots. */
+.group-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #9aa0a6;
+}
+.group-dot[data-color="blue"] { background: #4f8df7; }
+.group-dot[data-color="red"] { background: #ef6b62; }
+.group-dot[data-color="yellow"] { background: #f4c430; }
+.group-dot[data-color="green"] { background: #4fb36d; }
+.group-dot[data-color="pink"] { background: #f06fb4; }
+.group-dot[data-color="purple"] { background: #b17df0; }
+.group-dot[data-color="cyan"] { background: #3fc1da; }
+.group-dot[data-color="orange"] { background: #f59240; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
