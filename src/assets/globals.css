@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+/* Geist, bundled (latin, variable weight, ~29 KB): MV3 pages cannot load remote fonts. */
+@import "@fontsource-variable/geist/wght.css";
 
 /*
  * Theme tokens for shadcn/ui. Dark mode follows the existing theme switch,
@@ -36,56 +38,58 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif;
+  --font-sans: "Geist Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-/* Light: slate neutrals with the existing blue accent. */
+/*
+ * Design tokens: zinc neutrals with a teal accent.
+ * Every text color is >= 4.5:1 (WCAG AA) on background, card and muted surfaces in both themes.
+ */
 :root {
-  --radius: 0.5rem;
-  --background: oklch(0.984 0.003 247.858);
-  --foreground: oklch(0.208 0.042 265.755);
+  --radius: 0.625rem;
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.21 0.006 285.885);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.208 0.042 265.755);
+  --card-foreground: oklch(0.21 0.006 285.885);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.208 0.042 265.755);
-  --primary: oklch(0.546 0.245 262.881);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.279 0.041 260.031);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.279 0.041 260.031);
-  --destructive: oklch(0.577 0.245 27.325);
+  --popover-foreground: oklch(0.21 0.006 285.885);
+  --primary: oklch(0.511 0.096 186.391);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.967 0.001 286.375);
+  --muted-foreground: oklch(0.527 0.016 285.938);
+  --accent: oklch(0.953 0.051 180.801);
+  --accent-foreground: oklch(0.386 0.063 188.416);
+  --destructive: oklch(0.55 0.235 27.325);
   --success: oklch(0.527 0.154 150.069);
-  --warning: oklch(0.666 0.179 58.318);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.869 0.022 252.894);
-  --ring: oklch(0.546 0.245 262.881);
+  --warning: oklch(0.555 0.163 48.998);
+  --border: oklch(0.92 0.004 286.32);
+  --input: oklch(0.871 0.006 286.286);
+  --ring: oklch(0.6 0.118 184.704);
 }
 
-/* Dark: the current deep-slate look. */
 [data-theme="dark"] {
-  --background: oklch(0.208 0.042 265.755);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.247 0.042 264.695);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.279 0.041 260.031);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.623 0.214 259.815);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
+  --background: oklch(0.141 0.005 285.823);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.21 0.006 285.885);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.274 0.006 286.033);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.777 0.152 181.912);
+  --primary-foreground: oklch(0.277 0.046 192.524);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.274 0.006 286.033);
+  --muted-foreground: oklch(0.705 0.015 286.067);
+  --accent: oklch(0.277 0.046 192.524);
+  --accent-foreground: oklch(0.855 0.138 181.071);
   --destructive: oklch(0.704 0.191 22.216);
   --success: oklch(0.765 0.177 163.223);
   --warning: oklch(0.828 0.189 84.429);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.623 0.214 259.815);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.704 0.14 182.503);
   color-scheme: dark;
 }
 

@@ -5,7 +5,7 @@
 </p>
 
 Back up and move tabs, tab groups and bookmarks between Chromium browsers and Firefox.
-Built with [WXT](https://wxt.dev), React, TypeScript, Tailwind CSS v4 and [shadcn/ui](https://ui.shadcn.com) (Radix primitives, lucide icons). This is a rewrite of the
+Built with [WXT](https://wxt.dev), React, TypeScript, Tailwind CSS v4 and [shadcn/ui](https://ui.shadcn.com) (Radix primitives, lucide icons). Design tokens: zinc neutrals with a teal accent and the bundled Geist font; every text color meets WCAG AA (4.5:1) in both themes. This is a rewrite of the
 plain-JS [chromium-tab-migrator](https://github.com/rennerdo30/chromium-tab-migrator) reference implementation with the same features
 and the same backup format (schema 1.1), so files move freely between the two.
 
@@ -102,7 +102,8 @@ tests/
 ├── helpers/fake-browser.ts  # strict in-memory browser, installed onto WXT's fakeBrowser
 ├── *.test.ts, popup/        # Vitest
 └── e2e/smoke.mjs            # real headless Chrome over CDP
-public/                      # icons, logo, _locales
+public/                      # icons (rendered), logo, _locales
+assets-src/                  # icon sources: icon.svg, simplified icon-16.svg
 ```
 
 Tests use a strict fake browser: for example, `tabs.group` rejects a top-level `windowId`

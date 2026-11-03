@@ -2,6 +2,7 @@
  * Lazy placeholder page: shows the saved tab and navigates to it the first
  * time the tab becomes visible, so restored tabs don't all load at once.
  */
+import '@fontsource-variable/geist/wght.css';
 import { browser } from 'wxt/browser';
 
 const ALLOWED_PROTOCOLS = new Set(['http:', 'https:', 'ftp:', 'file:']);

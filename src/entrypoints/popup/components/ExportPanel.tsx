@@ -81,7 +81,7 @@ function PreviewStat({ value, label, loading }: { value: number | undefined; lab
       {loading ? (
         <Skeleton className="h-6 w-10" />
       ) : (
-        <span className="text-lg font-semibold tabular-nums">{value === undefined ? '–' : fmt(value)}</span>
+        <span className="text-xl font-semibold tracking-tight tabular-nums">{value === undefined ? '–' : fmt(value)}</span>
       )}
       <span className="text-xs text-muted-foreground">{label}</span>
     </div>

@@ -66,7 +66,7 @@ const BOOKMARK_STRATEGIES: Array<[BookmarkStrategy, string]> = [
 function StatCell({ value, label }: { value: number; label: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-lg font-semibold tabular-nums">{fmt(value)}</span>
+      <span className="text-xl font-semibold tracking-tight tabular-nums">{fmt(value)}</span>
       <span className="text-xs text-muted-foreground">{label}</span>
     </div>
   );
