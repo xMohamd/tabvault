@@ -221,7 +221,7 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
 
   return (
     <div id="backups-panel" className="flex min-h-0 flex-1 flex-col">
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-2 pb-4">
         <section aria-labelledby="snapshots-heading" className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <h2 id="snapshots-heading" className="text-sm font-medium">
@@ -305,7 +305,7 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
               <Input
                 type="number"
                 id="bk-keep"
-                className="w-20! flex-none" /* ! beats the legacy unlayered input[type=number] rule in popup.css */
+                className="w-20 flex-none"
                 min={KEEP_MIN}
                 max={KEEP_MAX}
                 step={1}
@@ -399,13 +399,16 @@ function SnapshotRow({
     <li>
       <Item variant="outline" size="sm" className="flex-nowrap">
         <ItemContent className="min-w-0">
+          {/* Date alone on the first line so it never truncates; reason + counts below. */}
           <ItemTitle className="w-full">
             <span className="truncate">{date}</span>
+          </ItemTitle>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
             <Badge variant={SAFETY_REASONS.has(meta.reason) ? 'outline' : 'secondary'} className="font-normal">
               {badgeKey ? t(badgeKey) : String(meta.reason ?? '')}
             </Badge>
-          </ItemTitle>
-          <ItemDescription className="text-xs tabular-nums">{details}</ItemDescription>
+            <ItemDescription className="max-w-full shrink-0 text-xs tabular-nums">{details}</ItemDescription>
+          </div>
         </ItemContent>
         <ItemActions>
           <Button variant="outline" size="sm" aria-label={t('snapshotRestoreLabel', date)} disabled={restoreDisabled} onClick={() => onRestore(date)}>

@@ -23,10 +23,6 @@
     "message": "This tab was restored without loading. It opens when you switch to it.",
     "description": "Hint on the placeholder page of a restored tab."
   },
-  "browserDetecting": {
-    "message": "Detecting browser…",
-    "description": "Badge text in the header while the browser name is being detected."
-  },
   "unknownBrowser": {
     "message": "Unknown browser",
     "description": "Badge text when the browser could not be identified."
@@ -69,25 +65,9 @@
       }
     }
   },
-  "errorWorkerUnavailable": {
-    "message": "The extension background isn't responding. Try again in a moment.",
-    "description": "Error shown when the extension's background process cannot be reached."
-  },
   "errorUnknown": {
     "message": "Unknown error",
     "description": "Fallback text when an error has no message."
-  },
-  "exportTitle": {
-    "message": "Export backup",
-    "description": "Heading of the Export tab."
-  },
-  "exportIntro": {
-    "message": "Save your current browser state to a portable JSON file.",
-    "description": "Introduction under the Export heading."
-  },
-  "exportContentLabel": {
-    "message": "Content to save",
-    "description": "Label of the group of checkboxes choosing what to export."
   },
   "exportTabsPrimary": {
     "message": "Tabs & groups",
@@ -250,14 +230,6 @@
         "example": "detail"
       }
     }
-  },
-  "importTitle": {
-    "message": "Import backup",
-    "description": "Heading of the Import tab."
-  },
-  "importIntro": {
-    "message": "Restore tabs, groups and bookmarks from a backup file.",
-    "description": "Introduction under the Import heading."
   },
   "importChooseFile": {
     "message": "Choose a backup file",
@@ -741,10 +713,6 @@
     "message": "Restore results",
     "description": "Heading of the card describing the outcome of a restore."
   },
-  "resultsDismiss": {
-    "message": "Dismiss",
-    "description": "Button hiding the results card."
-  },
   "resultsErrorsLabel": {
     "message": "Problems",
     "description": "Heading above the list of problems from a restore."
@@ -859,14 +827,6 @@
     "message": "Couldn't create a window for this tab",
     "description": "Reason a tab could not be restored."
   },
-  "backupsTitle": {
-    "message": "Backups",
-    "description": "Heading of the Backups tab."
-  },
-  "backupsIntro": {
-    "message": "Keep copies of your tabs and bookmarks inside this browser.",
-    "description": "Introduction under the Backups heading."
-  },
   "autoTitle": {
     "message": "Automatic backups",
     "description": "Heading of the card with scheduled backup settings."
@@ -878,18 +838,6 @@
   "autoFrequencyLabel": {
     "message": "How often",
     "description": "Label of the menu choosing the backup interval."
-  },
-  "freqHourly": {
-    "message": "Every hour",
-    "description": "Menu choice."
-  },
-  "freqDaily": {
-    "message": "Every day",
-    "description": "Menu choice."
-  },
-  "freqWeekly": {
-    "message": "Every week",
-    "description": "Menu choice."
   },
   "autoKeepLabel": {
     "message": "Snapshots to keep",
@@ -930,10 +878,6 @@
   "autoUnavailable": {
     "message": "Scheduled backups aren't available in this browser.",
     "description": "Message shown when the browser has no alarms support."
-  },
-  "autoSave": {
-    "message": "Save settings",
-    "description": "Button saving the automatic backup settings."
   },
   "autoSaved": {
     "message": "Settings saved.",
@@ -1141,10 +1085,6 @@
       }
     }
   },
-  "statusReady": {
-    "message": "Ready",
-    "description": "Initial footer status."
-  },
   "diagnosticsButton": {
     "message": "Copy diagnostics",
     "description": "Footer button copying technical information for bug reports."
@@ -1162,10 +1102,6 @@
         "example": "detail"
       }
     }
-  },
-  "exportIncludeBookmarklets": {
-    "message": "Include bookmarklets (javascript: bookmarks)",
-    "description": "Checkbox under Bookmarks on Export: keep bookmarks whose address is a javascript: script."
   },
   "importBookmarkletsOption_one": {
     "message": "Include $COUNT$ bookmarklet",

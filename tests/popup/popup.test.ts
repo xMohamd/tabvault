@@ -569,14 +569,19 @@ describe('import', () => {
       await openTabAndWait(user);
       act(() => broadcast({ type: 'IMPORT_STATE', state: runningState }));
 
-      expect($('#progress-bar').getAttribute('aria-valuenow')).toBe('50'); // shell strip
-      expect($('#progress-text').textContent).toBe('5 / 10');
+      // On the Import tab only the progress view shows progress; the shell strip is for other tabs.
+      expect(document.querySelector('#progress-bar')).toBeNull();
       expect(within($('#import-progress')).getByRole('progressbar', { name: t('progressLabel') }).getAttribute('aria-valuenow')).toBe('50');
       expect($('#import-progress-text').textContent).toBe('5 / 10');
       expect(within($('#import-progress')).getByText(t('phaseTabs'))).toBeTruthy();
       expect(within($('#import-progress')).getByText(t('importRunningNote'))).toBeTruthy();
       expect(document.querySelector('#import-empty')).toBeNull();
       expect($<HTMLInputElement>('#import-file').disabled).toBe(true);
+
+      await openTab(user, 'export');
+      expect($('#progress-bar').getAttribute('aria-valuenow')).toBe('50');
+      expect($('#progress-text').textContent).toBe('5 / 10');
+      await openTab(user, 'import');
 
       await user.click($('#btn-cancel'));
       await waitFor(() => expect(callsOf('IMPORT_CANCEL')).toHaveLength(1));
@@ -596,7 +601,7 @@ describe('import', () => {
       });
       renderApp();
       await waitFor(() => expect(tabEl('import').getAttribute('aria-selected')).toBe('true'));
-      expect($('#progress-text').textContent).toBe('1 / 4');
+      expect($('#import-progress-text').textContent).toBe('1 / 4');
       expect(within($('#import-progress')).getByText(t('phaseBookmarks'))).toBeTruthy();
       expect($('#btn-cancel')).toBeTruthy();
     });
@@ -621,7 +626,9 @@ describe('import', () => {
       expect($('#results-card')).toBeTruthy();
       expect($('#results-summary').textContent).toBe(t('statusImportDoneIssues', ['8', '0']));
       expect($('#results-summary').getAttribute('role')).toBe('alert');
-      expect((await findToast(t('statusImportDoneIssues', ['8', '0']))).getAttribute('data-type')).toBe('warning');
+      // The results view is on screen, so no toast repeats it.
+      const toasts = [...document.querySelectorAll('[data-sonner-toast]')].map((el) => el.textContent ?? '');
+      expect(toasts.some((text) => text.includes(t('statusImportDoneIssues', ['8', '0'])))).toBe(false);
       expect($('#results-stats').textContent).toContain('8');
       expect($('#results-failures-summary').textContent).toBe(tp('failuresSummary', 1, '1'));
 
@@ -633,6 +640,15 @@ describe('import', () => {
       await user.click($('#btn-results-dismiss'));
       expect(document.querySelector('#results-card')).toBeNull();
       expect($('#import-empty')).toBeTruthy();
+    });
+
+    it('announces the finish with a toast when another tab is open', async () => {
+      const user = userEvent.setup();
+      await openTabAndWait(user);
+      act(() => broadcast({ type: 'IMPORT_STATE', state: runningState }));
+      await openTab(user, 'export');
+      act(() => broadcast({ type: 'IMPORT_STATE', state: doneState() }));
+      expect((await findToast(t('statusImportDoneIssues', ['8', '0']))).getAttribute('data-type')).toBe('warning');
     });
 
     it('colours the summary by outcome', async () => {

@@ -45,7 +45,7 @@ export function ImportProgress({ state, setStatus }: { state: ImportState; setSt
       <div id="import-progress" className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-8 py-4 text-center">
         <Spinner className="size-6 text-muted-foreground" />
         <div className="flex w-full flex-col gap-1">
-          <h2 ref={focusOnMount} tabIndex={-1} className="text-sm font-medium outline-none!" role="status">
+          <h2 ref={focusOnMount} tabIndex={-1} className="text-sm font-medium outline-none" role="status">
             {phaseMessage(state)}
           </h2>
           <p id="import-progress-text" className="text-sm tabular-nums text-muted-foreground">

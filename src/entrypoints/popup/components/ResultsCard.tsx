@@ -93,8 +93,8 @@ export function ResultsCard({
 
   return (
     <>
-      <section id="results-card" aria-labelledby="results-title" className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
-        <h2 id="results-title" ref={focusOnMount} tabIndex={-1} className="text-sm font-medium outline-none!">
+      <section id="results-card" aria-labelledby="results-title" className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-2 pb-4">
+        <h2 id="results-title" ref={focusOnMount} tabIndex={-1} className="text-sm font-medium outline-none">
           {t('resultsTitle')}
         </h2>
 

@@ -77,6 +77,9 @@ export function App() {
   const [dismissedFinish, setDismissedFinish] = useState<string | null>(null);
   const [dark, setDark] = useState(() => resolveTheme() === 'dark');
   const reportedFinish = useRef<string | null>(null);
+  /** Current tab for callbacks: the finish toast is skipped when the results view is on screen. */
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
   const importer = useImportCandidate();
 
   /** Outcomes are toasts; ongoing progress lives in the progress strip instead. */
@@ -106,7 +109,8 @@ export function App() {
       if (key === reportedFinish.current) return;
       reportedFinish.current = key;
       const outcome = describeFinish(state);
-      if (outcome) setStatus(outcome.message, outcome.tone);
+      // On the Import tab the results view already says this; a toast would only repeat it.
+      if (outcome && tabRef.current !== 'import') setStatus(outcome.message, outcome.tone);
     },
     [setStatus],
   );
@@ -222,7 +226,8 @@ export function App() {
           </div>
         </header>
 
-        {running && (
+        {/* On the Import tab the progress view shows this; the strip is for the other tabs. */}
+        {running && tab !== 'import' && (
           <div className="flex flex-col gap-1.5 border-b px-4 py-2">
             <div className="flex items-center justify-between gap-2 text-xs">
               <span className="truncate text-muted-foreground">{progressMessage}</span>
@@ -245,7 +250,7 @@ export function App() {
         )}
 
         <Tabs value={tab} onValueChange={(value) => setTab(value as TabName)} className="flex min-h-0 flex-1 flex-col gap-0">
-          <div className="px-4 pt-3">
+          <div className="px-4 pt-3 pb-2">
             <TabsList aria-label={t('tabsAriaLabel')} className="w-full">
               {TABS.map(({ name, labelKey, icon: Icon }) => (
                 <TabsTrigger key={name} value={name} className="flex-1">
