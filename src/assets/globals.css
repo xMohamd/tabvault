@@ -61,9 +61,11 @@
   --muted-foreground: oklch(0.527 0.016 285.938);
   --accent: oklch(0.953 0.051 180.801);
   --accent-foreground: oklch(0.386 0.063 188.416);
-  --destructive: oklch(0.55 0.235 27.325);
-  --success: oklch(0.527 0.154 150.069);
-  --warning: oklch(0.555 0.163 48.998);
+  /* L 0.50: red text stays >= 4.5:1 on its own 10% tint (destructive buttons), not just on white. */
+  --destructive: oklch(0.5 0.22 27.325);
+  /* success/warning are also used at 90% opacity (alerts) on white and on the page background: L 0.48 / 0.51 keep that >= 4.5:1. */
+  --success: oklch(0.48 0.154 150.069);
+  --warning: oklch(0.51 0.163 48.998);
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.871 0.006 286.286);
   --ring: oklch(0.6 0.118 184.704);
@@ -84,13 +86,25 @@
   --muted-foreground: oklch(0.705 0.015 286.067);
   --accent: oklch(0.277 0.046 192.524);
   --accent-foreground: oklch(0.855 0.138 181.071);
-  --destructive: oklch(0.704 0.191 22.216);
+  /* L 0.74: text stays >= 4.5:1 on its 10% tint inside popovers (destructive buttons in dialogs). */
+  --destructive: oklch(0.74 0.191 22.216);
   --success: oklch(0.765 0.177 163.223);
   --warning: oklch(0.828 0.189 84.429);
   --border: oklch(1 0 0 / 9%);
   --input: oklch(1 0 0 / 14%);
   --ring: oklch(0.704 0.14 182.503);
   color-scheme: dark;
+}
+
+/*
+ * Sonner's built-in rich-colour text on its light backgrounds is 3.1-4.4:1. Same hues, darker, >= 4.9:1.
+ * (Its dark-theme colours are already >= 6.5:1.) The repeated attribute selector outranks sonner's own rule.
+ */
+[data-sonner-toaster][data-sonner-toaster][data-sonner-theme="light"] {
+  --success-text: hsl(140, 100%, 24%);
+  --info-text: hsl(210, 92%, 41%);
+  --warning-text: hsl(31, 92%, 34%);
+  --error-text: hsl(360, 100%, 42%);
 }
 
 @layer base {

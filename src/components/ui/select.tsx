@@ -3,6 +3,7 @@
 import * as React from "react"
 import { cn } from "cn"
 import { Select as SelectPrimitive } from "radix-ui"
+import { portalContainer } from "./portal-container"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
 function Select({
@@ -64,7 +65,7 @@ function SelectContent({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   return (
-    <SelectPrimitive.Portal>
+    <SelectPrimitive.Portal container={portalContainer()}>
       <SelectPrimitive.Content
         data-slot="select-content"
         data-align-trigger={position === "item-aligned"}
