@@ -26,12 +26,16 @@ APIs at runtime, not guessed from the browser name.
 - **Export** tabs, groups and bookmarks to JSON, with a domain filter (exact host or
   subdomain), skipping browser/extension pages, recovering the real address of suspended
   tabs, and window size/position.
-- **Import** this extension's backups, OneTab text, Session Buddy JSON, bookmark HTML,
+- **Import** this extension's backups, OneTab text, Session Buddy backups and JSON exports
+  ([documented format](https://www.sessionbuddy.com/formats/#json): saved collections and
+  browser-closed history, with tab groups and window layout), bookmark HTML,
   Firefox bookmark JSON, or a plain list of URLs. Preview and pick windows/groups first.
   Tabs keep their order, pinned state and groups; they can stay unloaded, open as a light
   placeholder page, or load normally. Bookmarks merge into the matching folders, go into a
   dated folder, or replace the existing ones (after a confirmation and an automatic
   safety snapshot). Anything that couldn't be restored is listed with the reason.
+- **Suspended tabs** from tab-suspender extensions (placeholder pages with a `url=` or
+  `uri=` parameter) are restored as the real page, on export and on import.
   In the toolbar popup, choosing a file opens the Import page in a tab: browsers close a
   popup when a file dialog takes focus, which would lose the file. Dropping a file onto
   the popup works directly.

@@ -116,8 +116,12 @@ export function PreviewCard({ data, selection, onChange }: Props) {
                   strong
                   checked={checkedCount === states.length}
                   indeterminate={checkedCount > 0 && checkedCount < states.length}
-                  ariaLabel={tp('previewWindowLabel', windowTabs, [number, fmt(windowTabs)])}
-                  name={t('previewWindow', number)}
+                  ariaLabel={
+                    win.title
+                      ? tp('previewWindowTitledLabel', windowTabs, [win.title, fmt(windowTabs)])
+                      : tp('previewWindowLabel', windowTabs, [number, fmt(windowTabs)])
+                  }
+                  name={win.title || t('previewWindow', number)}
                   count={windowTabs}
                   onChange={(value) => update(wi, { ungrouped: value, groups: sel.groups.map(() => value) })}
                 />

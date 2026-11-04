@@ -294,8 +294,8 @@
     "description": "Detected file format name."
   },
   "formatSessionBuddy": {
-    "message": "Session Buddy export",
-    "description": "Detected file format name."
+    "message": "Session Buddy",
+    "description": "Import format name: a Session Buddy backup or export file."
   },
   "formatNetscapeHtml": {
     "message": "Bookmarks HTML export",
@@ -1328,5 +1328,33 @@
   "importChooseInTabHint": {
     "message": "Your browser closes this popup when a file dialog opens, so files are picked in a tab. You can also drop a file here.",
     "description": "Explains, under the button, why choosing a file opens a tab."
+  },
+  "previewWindowTitledLabel_one": {
+    "message": "$TITLE$, $COUNT$ tab",
+    "description": "Accessible name of a named window in the import preview (singular), e.g. a Session Buddy folder.",
+    "placeholders": {
+      "title": {
+        "content": "$1",
+        "example": "Work · Docs"
+      },
+      "count": {
+        "content": "$2",
+        "example": "12"
+      }
+    }
+  },
+  "previewWindowTitledLabel_other": {
+    "message": "$TITLE$, $COUNT$ tabs",
+    "description": "Accessible name of a named window in the import preview (plural).",
+    "placeholders": {
+      "title": {
+        "content": "$1",
+        "example": "Work · Docs"
+      },
+      "count": {
+        "content": "$2",
+        "example": "12"
+      }
+    }
   }
 }
