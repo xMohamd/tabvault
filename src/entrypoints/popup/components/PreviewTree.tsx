@@ -1,5 +1,5 @@
 import { t, tp } from '@/lib/i18n';
-import { countWindowTabs, type Backup, type BackupWindow } from '@/lib/schema';
+import { countWindowTabs, selectedByDefault, type Backup, type BackupWindow } from '@/lib/schema';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -13,8 +13,12 @@ export interface WindowSelection {
   groups: boolean[];
 }
 
+/** Everything starts selected, except older Session Buddy history snapshots (see selectedByDefault). */
 export const defaultSelection = (data: Backup): WindowSelection[] =>
-  data.windows.map((win) => ({ ungrouped: true, groups: win.groups.map(() => true) }));
+  data.windows.map((win) => {
+    const on = selectedByDefault(win);
+    return { ungrouped: on, groups: win.groups.map(() => on) };
+  });
 
 export function selectedTabCount(data: Backup, selection: WindowSelection[]): number {
   return data.windows.reduce((total, win, wi) => {

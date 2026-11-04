@@ -303,6 +303,31 @@ describe('import', () => {
       expect($('#summary-format').textContent).toBe(t('summaryFormat', t('formatSessionBuddy')));
     });
 
+    it('selects only the newest Session Buddy history snapshot by default', async () => {
+      const user = userEvent.setup();
+      renderApp();
+      const snap = (created: number, urls: string[]) => ({ type: 'browser-closed', created, windows: [{ tabs: urls.map((url) => ({ url })) }] });
+      const json = JSON.stringify({
+        format: 'nxs.json.v2',
+        history: [
+          snap(Date.UTC(2026, 10, 8, 12, 30), ['https://a.example/', 'https://b.example/']),
+          snap(Date.UTC(2026, 10, 8, 12, 11), ['https://a.example/', 'https://b.example/', 'https://c.example/']),
+        ],
+      });
+      await openTab(user, 'import');
+      await user.upload($<HTMLInputElement>('#import-file'), new File([json], 'session-buddy-backup.json', { type: 'application/json' }));
+      await waitFor(() => $('#preview-tree'));
+
+      const windowBoxes = checkboxes().filter((box) => box.id.match(/^pv-w\d+$/));
+      expect(windowBoxes.map((box) => box.getAttribute('aria-checked'))).toEqual(['true', 'false']);
+      expect($('#preview-total').textContent).toBe(t('previewSelected', '2'));
+      expect($('#btn-import').textContent).toBe(tp('importButtonTabs', 2, '2'));
+
+      // Older snapshots can still be added.
+      await user.click(windowBoxes[1]!);
+      expect($('#preview-total').textContent).toBe(t('previewSelected', '5'));
+    });
+
     it('loads a file dropped on the panel and highlights the drop target', async () => {
       const user = userEvent.setup();
       renderApp();

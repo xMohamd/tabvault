@@ -125,13 +125,31 @@ function collectionWindows(collection: Obj, budget: TabBudget): BackupWindow[] {
   return out.filter((w): w is BackupWindow => w !== null);
 }
 
-/** Browser-closed (and other) history entries from a v4 backup, titled with their date. */
-function historyWindows(entry: Obj, budget: TabBudget): BackupWindow[] {
-  const when = finite(entry.created) ?? finite(entry.instant);
+const closedAt = (entry: Obj): number | undefined => finite(entry.created) ?? finite(entry.instant);
+
+/**
+ * One history entry (a snapshot of all windows when the browser closed), titled with its date.
+ * `snapshot` ranks entries newest first: 0 is the newest; the preview pre-selects only that one,
+ * because older snapshots mostly repeat the same tabs.
+ */
+function historyWindows(entry: Obj, budget: TabBudget, snapshot: number): BackupWindow[] {
+  const when = closedAt(entry);
   const date = when !== undefined ? historyDate.format(new Date(when)) : '';
   return objects(entry.windows)
-    .map((w, i, all) => toWindow(w, budget, [date, all.length > 1 ? `${i + 1}` : ''].filter(Boolean).join(' · ')))
+    .map((w, i, all) => {
+      const win = toWindow(w, budget, [date, all.length > 1 ? `${i + 1}` : ''].filter(Boolean).join(' · '));
+      if (win) win.metadata = { sessionBuddy: 'history', snapshot, ...(when !== undefined ? { closedAt: when } : {}) };
+      return win;
+    })
     .filter((w): w is BackupWindow => w !== null);
+}
+
+/** History entries newest first (by close time; entries without a time keep their file order, last). */
+function newestFirst(entries: Obj[]): Obj[] {
+  return entries
+    .map((entry, order) => ({ entry, order, when: closedAt(entry) }))
+    .sort((a, b) => (b.when ?? -Infinity) - (a.when ?? -Infinity) || a.order - b.order)
+    .map(({ entry }) => entry);
 }
 
 /** What kind of objects an array holds (documented array forms). */
@@ -159,7 +177,7 @@ export function isSessionBuddyBackup(json: unknown): boolean {
 
 /**
  * Converts parsed Session Buddy JSON to a (not yet normalised) native backup.
- * Saved collections come first, then history (most recent first, as stored).
+ * Saved collections come first, then history snapshots, newest first.
  * @throws {BackupFormatError} when no restorable tab is found
  */
 export function convertSessionBuddy(json: unknown): Backup {
@@ -174,7 +192,7 @@ export function convertSessionBuddy(json: unknown): Backup {
     if (kind === 'links') windows.push(...[toWindow({ links: items }, budget)].filter((w): w is BackupWindow => w !== null));
   } else if (isObject(json)) {
     for (const c of objects(json.collections ?? json.sessions)) windows.push(...collectionWindows(c, budget));
-    for (const h of objects(json.history)) windows.push(...historyWindows(h, budget));
+    newestFirst(objects(json.history)).forEach((h, rank) => windows.push(...historyWindows(h, budget, rank)));
     for (const f of objects(json.folders ?? json.windows)) {
       const win = toWindow(f, budget);
       if (win) windows.push(win);

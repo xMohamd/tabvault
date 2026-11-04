@@ -37,6 +37,11 @@ export interface BackupGroup {
 export interface BackupWindow {
   /** Optional label (e.g. a Session Buddy collection/folder name); shown in the import preview. */
   title?: string;
+  /**
+   * Optional import hints, e.g. { sessionBuddy: 'history', snapshot: 0 } for the newest
+   * browser-closed session in a Session Buddy backup (older snapshots have higher numbers).
+   */
+  metadata?: Record<string, unknown>;
   ungroupedTabs: BackupTab[];
   groups: BackupGroup[];
   state?: WindowState;
@@ -157,6 +162,7 @@ function normalizeWindow(raw: unknown, warnings: NormalizeWarnings): BackupWindo
   }
   if (raw.focused === true) win.focused = true;
   if (typeof raw.title === 'string' && raw.title.trim()) win.title = raw.title.trim().slice(0, 200);
+  if (isObject(raw.metadata)) win.metadata = raw.metadata;
   if (win.ungroupedTabs.length === 0 && win.groups.length === 0) return null;
   return win;
 }
@@ -275,6 +281,15 @@ export function orderedWindowTabs(win: Pick<BackupWindow, 'ungroupedTabs' | 'gro
   const allIndexed = entries.length > 0 && entries.every((e) => Number.isInteger(e.tab.index));
   if (allIndexed) entries.sort((a, b) => (a.tab.index ?? 0) - (b.tab.index ?? 0)); // stable
   return [...entries.filter((e) => e.tab.pinned), ...entries.filter((e) => !e.tab.pinned)];
+}
+
+/**
+ * Whether a window should start selected in the import preview. Older snapshots of a
+ * Session Buddy history mostly repeat the newest one, so only the newest is pre-selected.
+ */
+export function selectedByDefault(win: Pick<BackupWindow, 'metadata'>): boolean {
+  const snapshot = win.metadata?.snapshot;
+  return !(win.metadata?.sessionBuddy === 'history' && typeof snapshot === 'number' && snapshot > 0);
 }
 
 /** An empty backup with the current schema, for format converters and the exporter. */

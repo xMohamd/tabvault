@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { parseBackupFile } from '../src/lib/formats';
-import { BackupFormatError, countTabs } from '../src/lib/schema';
+import { BackupFormatError, countTabs, selectedByDefault } from '../src/lib/schema';
 
 /** Index into an array, failing loudly (keeps tests free of non-null assertions). */
 function at<T>(list: readonly T[] | undefined, i: number): T {
@@ -134,6 +134,27 @@ describe('Session Buddy (documented format, real v4 backup structure)', () => {
 
     const last = at(r.data.windows, 3);
     expect(last.ungroupedTabs.map((tab) => tab.url), 'javascript: is never a tab').toEqual(['https://only.example.com/']);
+  });
+
+  it('ranks history snapshots newest first, whatever the file order', () => {
+    const snap = (created: number, url: string) => ({ type: 'browser-closed', created, windows: [{ tabs: [{ url }] }] });
+    const r = parseBackupFile(
+      JSON.stringify({
+        format: 'nxs.json.v2',
+        history: [snap(1000, 'https://oldest.example/'), snap(3000, 'https://newest.example/'), snap(2000, 'https://middle.example/')],
+      }),
+    );
+    expect(r.data.windows.map((w) => [at(w.ungroupedTabs, 0).url, w.metadata?.snapshot])).toEqual([
+      ['https://newest.example/', 0],
+      ['https://middle.example/', 1],
+      ['https://oldest.example/', 2],
+    ]);
+    expect(r.data.windows.map((w) => selectedByDefault(w))).toEqual([true, false, false]);
+  });
+
+  it('pre-selects saved collections and only the newest history snapshot', () => {
+    const r = parseBackupFile(fixture);
+    expect(r.data.windows.map((w) => selectedByDefault(w))).toEqual([true, true, true, false]);
   });
 
   it('reads the documented export example (collections -> folders -> links)', () => {
