@@ -1,6 +1,7 @@
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { parseBackupFile } from '../src/lib/formats';
-import { BackupFormatError } from '../src/lib/schema';
+import { BackupFormatError, countTabs } from '../src/lib/schema';
 
 /** Index into an array, failing loudly (keeps tests free of non-null assertions). */
 function at<T>(list: readonly T[] | undefined, i: number): T {
@@ -49,7 +50,8 @@ describe('Session Buddy', () => {
     expect(r.format).toBe('session-buddy');
     expect(r.data.windows.length).toBe(2);
     expect(at(at(r.data.windows, 0).ungroupedTabs, 0).pinned).toBe(true);
-    expect(at(r.data.windows, 0).ungroupedTabs.length, 'chrome:// dropped').toBe(1);
+    // Browser pages are kept: the restore step decides per browser and lists what it can't reopen.
+    expect(at(r.data.windows, 0).ungroupedTabs.map((tab) => tab.url)).toEqual(['https://a.com', 'chrome://x']);
   });
   it('single session with tab groups', () => {
     const r = parseBackupFile(
@@ -93,6 +95,89 @@ describe('Session Buddy', () => {
   });
   it('rejects a session with no usable tabs', () => {
     expect(() => parseBackupFile('{"sessions":[{"windows":[{"tabs":[]}]}]}')).toThrow(BackupFormatError);
+  });
+});
+
+describe('Session Buddy (documented format, real v4 backup structure)', () => {
+  const fixture = readFileSync(new URL('./fixtures/session-buddy-v4-backup.json', import.meta.url), 'utf8');
+
+  it('reads a v4 backup: collections first, then history, with layout, groups and suspended tabs', () => {
+    const r = parseBackupFile(fixture);
+    expect(r.format).toBe('session-buddy');
+    expect(r.label).toBe('Session Buddy backup');
+    expect(r.data.windows).toHaveLength(4);
+    expect(countTabs(r.data)).toBe(12);
+
+    const docs = at(r.data.windows, 0);
+    expect(docs.title).toBe('Research · Docs');
+    expect(docs).toMatchObject({ state: 'normal', left: 50, top: 25, width: 1034, height: 560 });
+    expect(at(docs.ungroupedTabs, 0).favIconUrl).toBe('https://developer.mozilla.org/favicon.ico');
+    expect(at(docs.ungroupedTabs, 1).pinned).toBe(true);
+    expect(at(r.data.windows, 1).title, '"name" wins over "title"').toBe('Research · Videos');
+
+    const closed = at(r.data.windows, 2);
+    expect(closed.title, 'history windows are labelled with their date').toMatch(/\d/);
+    expect(closed.state).toBe('maximized');
+    expect(closed.groups.map((g) => [g.title, g.color, g.tabs.length])).toEqual([
+      ['', 'grey', 2],
+      ['', 'blue', 2],
+    ]);
+    const all = [...closed.ungroupedTabs, ...closed.groups.flatMap((g) => g.tabs)].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+    expect(all.map((tab) => tab.index)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    const suspended = at(all, 4);
+    expect(suspended.url, 'tab suspender placeholder unwrapped').toBe('https://news.example.com/story?id=42&ref=home');
+    expect(String(suspended.metadata?.originalUrl)).toMatch(/^chrome-extension:\/\/.+\/park\.html\?/);
+    expect(at(all, 2).active).toBe(true);
+    expect(at(all, 5).favIconUrl, 'embedded data: icons are dropped').toBeUndefined();
+    expect(all.map((tab) => tab.url)).toContain('chrome://settings/');
+    expect(all.map((tab) => tab.url)).toContain('file:///home/user/notes.html');
+
+    const last = at(r.data.windows, 3);
+    expect(last.ungroupedTabs.map((tab) => tab.url), 'javascript: is never a tab').toEqual(['https://only.example.com/']);
+  });
+
+  it('reads the documented export example (collections -> folders -> links)', () => {
+    const r = parseBackupFile(
+      JSON.stringify({
+        collections: [
+          { title: 'Furry friends', folders: [{ title: 'Dogs', links: [{ title: 'GSD', url: 'https://en.wikipedia.org/wiki/German_Shepherd' }] }] },
+          { title: 'Reptiles', folders: [{ title: 'Snakes', state: 'maximized', incognito: true, links: [{ url: 'https://e.org/boa', pinned: true }] }] },
+        ],
+      }),
+    );
+    expect(r.label).toBe('Session Buddy export');
+    expect(r.data.windows.map((w) => w.title)).toEqual(['Furry friends · Dogs', 'Reptiles · Snakes']);
+    expect(at(r.data.windows, 1).state).toBe('maximized');
+  });
+
+  it.each([
+    ['array of links', [{ url: 'https://a.com' }, { url: 'https://b.com' }], 1, 2],
+    ['array of folders', [{ title: 'F', links: [{ url: 'https://a.com' }] }, { tabs: [{ url: 'https://b.com' }] }], 2, 2],
+    ['array of collections', [{ title: 'C', folders: [{ links: [{ url: 'https://a.com' }] }] }], 1, 1],
+    ['object with links', { links: [{ url: 'https://a.com' }] }, 1, 1],
+    ['object with tabs', { tabs: [{ url: 'https://a.com' }, { url: 'https://b.com' }] }, 1, 2],
+    ['object with folders', { folders: [{ links: [{ url: 'https://a.com' }] }] }, 1, 1],
+  ])('accepts the documented %s form', (_name, json, windows, tabs) => {
+    const r = parseBackupFile(JSON.stringify(json));
+    expect(r.format).toBe('session-buddy');
+    expect(r.data.windows).toHaveLength(windows);
+    expect(countTabs(r.data)).toBe(tabs);
+  });
+
+  it('rejects a Session Buddy file with nothing restorable', () => {
+    expect(() => parseBackupFile('{"format":"nxs.json.v2","history":[{"windows":[{"tabs":[{"url":"javascript:1"}]}]}]}')).toThrow(BackupFormatError);
+  });
+});
+
+describe('suspended tabs in other formats', () => {
+  it('unwraps tab-suspender placeholders in URL lists and OneTab files', () => {
+    const park = 'chrome-extension://abc/park.html?title=T&url=https%3A%2F%2Freal.example.com%2Fpage';
+    const list = parseBackupFile(`https://x.example.com/\n${park}\n`);
+    // A bare URL list only keeps http(s) lines; the placeholder line is an extension URL.
+    expect(countTabs(list.data)).toBeGreaterThanOrEqual(1);
+    const onetab = parseBackupFile(`https://x.example.com/ | X\n${park} | Parked`);
+    const urls = [...at(onetab.data.windows, 0).ungroupedTabs].map((tab) => tab.url);
+    expect(urls).toContain('https://real.example.com/page');
   });
 });
 

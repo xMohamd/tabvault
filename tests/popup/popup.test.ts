@@ -289,6 +289,20 @@ describe('import', () => {
       expect(document.querySelector('#choose-in-tab-hint')).toBeNull();
     });
 
+    it('shows window names from a Session Buddy file in the preview', async () => {
+      const user = userEvent.setup();
+      renderApp();
+      const json = JSON.stringify({
+        collections: [{ title: 'Research', folders: [{ title: 'Docs', links: [{ url: 'https://a.example/' }, { url: 'https://b.example/' }] }] }],
+      });
+      await openTab(user, 'import');
+      await user.upload($<HTMLInputElement>('#import-file'), new File([json], 'session-buddy.json', { type: 'application/json' }));
+      const tree = await waitFor(() => $('#preview-tree'));
+      expect(within(tree).getByText('Research · Docs')).toBeTruthy();
+      expect(within(tree).getByRole('checkbox', { name: tp('previewWindowTitledLabel', 2, ['Research · Docs', '2']) })).toBeTruthy();
+      expect($('#summary-format').textContent).toBe(t('summaryFormat', t('formatSessionBuddy')));
+    });
+
     it('loads a file dropped on the panel and highlights the drop target', async () => {
       const user = userEvent.setup();
       renderApp();

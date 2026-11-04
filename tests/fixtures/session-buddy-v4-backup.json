@@ -1,0 +1,67 @@
+{
+  "format": "nxs.json.v2",
+  "backupId": "fixture-backup-id",
+  "created": "2026-11-08T12:13:22.563Z",
+  "source": { "type": "client", "id": "fixture-client-id", "version": "4.1.2", "language": "en-US", "ua": "fixture" },
+  "collections": [
+    {
+      "id": 1,
+      "title": "Research",
+      "created": 1794000000000,
+      "folders": [
+        {
+          "title": "Docs",
+          "state": "normal",
+          "top": 25, "left": 50, "width": 1034, "height": 560,
+          "links": [
+            { "title": "MDN", "url": "https://developer.mozilla.org/", "favIconUrl": "https://developer.mozilla.org/favicon.ico" },
+            { "title": "WXT", "url": "https://wxt.dev/", "pinned": true }
+          ]
+        },
+        {
+          "name": "Videos",
+          "title": "ignored because name wins",
+          "links": [{ "title": "A talk", "url": "https://www.youtube.com/watch?v=abc" }]
+        }
+      ]
+    }
+  ],
+  "history": [
+    {
+      "id": 1794139761834,
+      "instant": 1794139761834,
+      "type": "browser-closed",
+      "created": 1794139761834,
+      "windows": [
+        {
+          "id": 1921764000, "state": "maximized", "left": 339, "top": 0, "width": 1920, "height": 1048,
+          "tabs": [
+            { "id": 1, "title": "Pinned mail", "url": "https://mail.example.com/", "pinned": true },
+            { "id": 2, "title": "Group A one", "url": "https://a.example.com/1", "groupId": 777 },
+            { "id": 3, "title": "Group A two", "url": "https://a.example.com/2", "groupId": 777, "active": true },
+            { "id": 4, "title": "Loose", "url": "http://loose.example.com/" },
+            { "id": 5, "title": "Suspended article", "url": "chrome-extension://fiabciakcmgepblmdkmemdbbkilneeeh/park.html?title=Suspended%20article&url=https%3A%2F%2Fnews.example.com%2Fstory%3Fid%3D42%26ref%3Dhome&tabId=5&sessionId=1&icon=", "groupId": 888 },
+            { "id": 6, "title": "Group B two", "url": "https://b.example.com/", "groupId": 888, "favIconUrl": "data:image/x-icon;base64,AAABAAIAEBAAAAEAIABoBAAAJgAAACAgAAABACAAqBAAAI4EAAAoAAAAEAAAACAAAAABACAAAAAAAAAEAAAAAAAA" },
+            { "id": 7, "title": "Settings", "url": "chrome://settings/" },
+            { "id": 8, "title": "Local file", "url": "file:///home/user/notes.html" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 1794100000000,
+      "instant": 1794100000000,
+      "type": "browser-closed",
+      "created": 1794100000000,
+      "windows": [
+        {
+          "id": 1921763000, "state": "maximized",
+          "tabs": [
+            { "id": 9, "title": "Only tab", "url": "https://only.example.com/" },
+            { "id": 10, "title": "Script", "url": "javascript:void(0)" }
+          ]
+        }
+      ]
+    }
+  ]
+}
