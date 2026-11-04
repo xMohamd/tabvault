@@ -25,3 +25,30 @@ jobs:
         with:
           name: extension-zips
           path: .output/*.zip
+
+  e2e:
+    # Real browsers: Chrome smoke test, accessibility audit (axe) and real Firefox.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chrome for Testing and Firefox
+        run: |
+          # Branded Chrome ignores --load-extension, so use Chrome for Testing.
+          echo "CHROME=$(npx -y @puppeteer/browsers install chrome@stable --path "$HOME/.cache/browsers" | tail -1 | cut -d' ' -f2-)" >> "$GITHUB_ENV"
+          echo "FIREFOX=$(npx -y @puppeteer/browsers install firefox@stable --path "$HOME/.cache/browsers" | tail -1 | cut -d' ' -f2-)" >> "$GITHUB_ENV"
+      - name: Chrome smoke test
+        run: pnpm test:e2e
+        env:
+          NO_SANDBOX: 1
+      - name: Accessibility audit
+        run: pnpm test:a11y
+        env:
+          NO_SANDBOX: 1
+      - name: Firefox end-to-end
+        run: pnpm test:e2e:firefox

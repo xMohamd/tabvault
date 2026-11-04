@@ -80,10 +80,19 @@ pnpm check           # all of the above in one go
 # and checks export, backups, restore order/groups/discard, lazy mode and popup size.
 # Branded Chrome ignores --load-extension. NO_SANDBOX=1 where AppArmor blocks namespaces.
 CHROME=/path/to/chrome-for-testing pnpm test:e2e
+
+# Accessibility audit: axe-core over every popup state in light + dark, plus keyboard,
+# reduced-motion and 200%/400% zoom checks. Fails on serious/critical (and moderate) issues.
+CHROME=/path/to/chrome-for-testing pnpm test:a11y
+
+# Real Firefox (WebDriver BiDi via puppeteer-core): export, snapshots, restore with
+# discarded tabs, groups and lazy mode, bookmark strategies, UI file import.
+pnpm test:e2e:firefox    # FIREFOX=/path/to/firefox to override /usr/bin/firefox
 ```
 
-CI (`.github/workflows/ci.yml`) runs typecheck, tests, both builds, the Firefox lint, and
-uploads the zips.
+CI (`.github/workflows/ci.yml`) runs typecheck, tests, both builds, the Firefox lint and
+uploads the zips; a second job runs the Chrome smoke test, the accessibility audit and the
+real-Firefox test in downloaded browsers.
 
 ### Layout
 
