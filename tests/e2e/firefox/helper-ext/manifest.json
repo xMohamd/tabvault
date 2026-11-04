@@ -1,0 +1,9 @@
+{
+  "manifest_version": 2,
+  "name": "TabVault e2e opener",
+  "version": "1.0",
+  "browser_specific_settings": { "gecko": { "id": "tm-e2e-opener@example.test" } },
+  "permissions": ["tabs"],
+  "background": { "scripts": ["background.js"] },
+  "content_scripts": [{ "matches": ["http://127.0.0.1/*"], "js": ["content.js"], "run_at": "document_start" }]
+}

@@ -17,7 +17,8 @@
     "test:watch": "vitest",
     "lint:firefox": "web-ext lint --source-dir .output/firefox-mv3",
     "check": "pnpm typecheck && pnpm test && pnpm build && pnpm build:firefox && pnpm lint:firefox",
-    "test:e2e": "wxt build && node tests/e2e/smoke.mjs"
+    "test:e2e": "wxt build && node tests/e2e/smoke.mjs",
+    "test:e2e:firefox": "wxt build -b firefox && node tests/e2e/firefox.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
