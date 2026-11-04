@@ -3,7 +3,7 @@
  * the restore options, and the main action pinned at the bottom.
  * Keyed by candidate id, so a new backup starts with fresh selections.
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ArchiveRestoreIcon, InfoIcon } from 'lucide-react';
 import {
   AlertDialog,
@@ -106,6 +106,7 @@ export function ImportReview(props: Props) {
   const [confirming, setConfirming] = useState(false);
   const [starting, setStarting] = useState(false);
   const focusOnMount = useFocusOnMount();
+  const importButton = useRef<HTMLButtonElement>(null);
 
   const tabsOn = hasTabs && importTabs;
   const bookmarksOn = hasBookmarks && bookmarksSupported && importBookmarks;
@@ -330,14 +331,22 @@ export function ImportReview(props: Props) {
             {t('importNothingSelected')}
           </p>
         )}
-        <Button id="btn-import" size="lg" className="w-full" disabled={startDisabled} onClick={handleStartClick}>
+        <Button ref={importButton} id="btn-import" size="lg" className="w-full" disabled={startDisabled} onClick={handleStartClick}>
           {starting ? <Spinner data-icon="inline-start" /> : <ArchiveRestoreIcon data-icon="inline-start" />}
           {buttonLabel(restoringTabs, bookmarksOn)}
         </Button>
       </div>
 
       <AlertDialog open={confirming && !running} onOpenChange={setConfirming}>
-        <AlertDialogContent id="replace-confirm" size="sm">
+        <AlertDialogContent
+          id="replace-confirm"
+          size="sm"
+          // The dialog has no trigger element, so Radix would drop focus on <body>: return it to the button that opened it.
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            importButton.current?.focus();
+          }}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>{t('replaceConfirmTitle')}</AlertDialogTitle>
             <AlertDialogDescription>{t('replaceConfirmText')}</AlertDialogDescription>

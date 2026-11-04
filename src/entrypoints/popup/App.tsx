@@ -202,7 +202,8 @@ export function App() {
               </TooltipTrigger>
               <TooltipContent>{themeLabel}</TooltipContent>
             </Tooltip>
-            <DropdownMenu>
+            {/* Not modal: a modal menu marks the header and the whole page aria-hidden while it is open. */}
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button id="btn-menu" variant="ghost" size="icon-sm" aria-label={t('menuMore')}>
                   <MoreHorizontalIcon />
@@ -226,77 +227,81 @@ export function App() {
           </div>
         </header>
 
-        {/* On the Import tab the progress view shows this; the strip is for the other tabs. */}
-        {running && tab !== 'import' && (
-          <div className="flex flex-col gap-1.5 border-b px-4 py-2">
-            <div className="flex items-center justify-between gap-2 text-xs">
-              <span className="truncate text-muted-foreground">{progressMessage}</span>
-              <span id="progress-text" className="tabular-nums text-muted-foreground">
-                {total > 0 ? `${fmt(current)} / ${fmt(total)}` : ''}
-              </span>
+        <main className="flex min-h-0 flex-1 flex-col">
+          {/* On the Import tab the progress view shows this; the strip is for the other tabs. */}
+          {running && tab !== 'import' && (
+            <div className="flex flex-col gap-1.5 border-b px-4 py-2">
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="truncate text-muted-foreground">{progressMessage}</span>
+                <span id="progress-text" className="tabular-nums text-muted-foreground">
+                  {total > 0 ? `${fmt(current)} / ${fmt(total)}` : ''}
+                </span>
+              </div>
+              <div
+                id="progress-bar"
+                className="h-1.5 overflow-hidden rounded-full bg-muted"
+                role="progressbar"
+                aria-label={t('progressLabel')}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(percent)}
+              >
+                <div className="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none" style={{ width: `${percent}%` }} />
+              </div>
             </div>
-            <div
-              id="progress-bar"
-              className="h-1.5 overflow-hidden rounded-full bg-muted"
-              role="progressbar"
-              aria-label={t('progressLabel')}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(percent)}
-            >
-              <div className="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none" style={{ width: `${percent}%` }} />
+          )}
+
+          <Tabs value={tab} onValueChange={(value) => setTab(value as TabName)} className="flex min-h-0 flex-1 flex-col gap-0">
+            <div className="px-4 pt-3 pb-2">
+              <TabsList aria-label={t('tabsAriaLabel')} className="w-full">
+                {TABS.map(({ name, labelKey, icon: Icon }) => (
+                  <TabsTrigger key={name} value={name} className="flex-1">
+                    <Icon />
+                    {t(labelKey)}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
             </div>
-          </div>
-        )}
 
-        <Tabs value={tab} onValueChange={(value) => setTab(value as TabName)} className="flex min-h-0 flex-1 flex-col gap-0">
-          <div className="px-4 pt-3 pb-2">
-            <TabsList aria-label={t('tabsAriaLabel')} className="w-full">
-              {TABS.map(({ name, labelKey, icon: Icon }) => (
-                <TabsTrigger key={name} value={name} className="flex-1">
-                  <Icon />
-                  {t(labelKey)}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
-
+            {/* tabIndex -1: Radix makes a panel a tab stop by default, but every panel holds controls (and has no focus ring). */}
           {/* forceMount keeps each tab's state (a loaded backup, typed filters) while switching. */}
-          <TabsContent value="export" forceMount className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
-            <ExportPanel setStatus={setStatus} />
-          </TabsContent>
-          <TabsContent value="import" forceMount className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
-            <ImportPanel
-              active={tab === 'import'}
-              browser={browser}
-              importState={importState}
-              resultsVisible={resultsVisible}
-              isTabView={tabView}
-              importer={importer}
-              setStatus={setStatus}
-              onDismissResults={() => setDismissedFinish(finishKey)}
-              openInTab={(name) => void openInTab(name)}
-              onStartAccepted={() => {
-                // The worker's broadcast normally arrives first; this only covers a missed one.
-                if (!running) applyImportState({ ...importState, status: 'running', phase: 'starting', current: 0, total: 0 });
-              }}
-            />
-          </TabsContent>
-          <TabsContent value="backups" forceMount className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
-            <BackupsPanel
-              active={tab === 'backups'}
-              browser={browser}
-              restoreRunning={running}
-              setStatus={setStatus}
-              onRestore={({ data, warnings, date }) => {
-                importer.reset();
-                importer.accept({ data, label: t('formatSnapshot'), warnings, message: t('fileLoadedSnapshot', date) });
-                setTab('import');
-              }}
-            />
-          </TabsContent>
-        </Tabs>
-        <Toaster position="top-center" richColors closeButton duration={4000} />
+            <TabsContent value="export" forceMount tabIndex={-1} className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
+              <ExportPanel setStatus={setStatus} />
+            </TabsContent>
+            <TabsContent value="import" forceMount tabIndex={-1} className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
+              <ImportPanel
+                active={tab === 'import'}
+                browser={browser}
+                importState={importState}
+                resultsVisible={resultsVisible}
+                isTabView={tabView}
+                importer={importer}
+                setStatus={setStatus}
+                onDismissResults={() => setDismissedFinish(finishKey)}
+                openInTab={(name) => void openInTab(name)}
+                onStartAccepted={() => {
+                  // The worker's broadcast normally arrives first; this only covers a missed one.
+                  if (!running) applyImportState({ ...importState, status: 'running', phase: 'starting', current: 0, total: 0 });
+                }}
+              />
+            </TabsContent>
+            <TabsContent value="backups" forceMount tabIndex={-1} className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
+              <BackupsPanel
+                active={tab === 'backups'}
+                browser={browser}
+                restoreRunning={running}
+                setStatus={setStatus}
+                onRestore={({ data, warnings, date }) => {
+                  importer.reset();
+                  importer.accept({ data, label: t('formatSnapshot'), warnings, message: t('fileLoadedSnapshot', date) });
+                  setTab('import');
+                }}
+              />
+            </TabsContent>
+          </Tabs>
+        </main>
+        {/* Bottom, just above each panel's pinned action bar (~68px): keeps the header and tabs visible. */}
+        <Toaster position="bottom-center" offset={{ bottom: 76 }} mobileOffset={{ bottom: 76 }} richColors closeButton duration={4000} />
       </div>
     </TooltipProvider>
   );

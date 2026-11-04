@@ -89,9 +89,9 @@ export function PreviewCard({ data, selection, onChange }: Props) {
   return (
     <section id="preview-card" className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-3">
       <div className="flex items-center justify-between gap-2">
-        <h3 id="preview-title" className="text-sm font-medium">
+        <h2 id="preview-title" className="text-sm font-medium">
           {t('previewTitle')}
-        </h3>
+        </h2>
         <div className="flex items-center gap-1">
           <Button type="button" id="btn-select-all" variant="ghost" size="xs" onClick={() => setAll(true)}>
             {t('previewSelectAll')}
