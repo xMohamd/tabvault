@@ -4,9 +4,10 @@
  * "Back up now" pinned at the bottom.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArchiveIcon, DownloadIcon, HistoryIcon, Trash2Icon } from 'lucide-react';
+import { ArchiveIcon, DownloadIcon, FileCheckIcon, GitCompareIcon, HistoryIcon, Trash2Icon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -18,6 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { send } from '@/lib/messaging';
 import { t } from '@/lib/i18n';
 import { BackupFormatError, normalizeBackup, type Backup, type NormalizeWarnings } from '@/lib/schema';
+import { diffBackups, type BackupDiff } from '@/lib/snapshot-diff';
 import type { BrowserInfo } from '@/lib/browser-detect';
 import type { LastRun, ScheduleFrequency, ScheduleSettings, SnapshotMeta } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -35,10 +37,12 @@ import {
   type SetStatus,
 } from '../shared';
 import { SettingsSection, SwitchRow } from './settings';
+import { SnapshotCompare } from './SnapshotCompare';
 
 const REASON_BADGE_KEYS: Record<string, string> = {
   scheduled: 'reasonScheduled',
   manual: 'reasonManual',
+  quick: 'reasonQuick',
   'pre-replace': 'reasonPreReplace',
   'pre-import': 'reasonPreImport',
 };
@@ -55,14 +59,16 @@ interface Form {
   frequency: ScheduleFrequency;
   keep: string;
   includeBookmarks: boolean;
+  saveToFiles: boolean;
 }
-const DEFAULT_FORM: Form = { enabled: false, frequency: 'daily', keep: '7', includeBookmarks: true };
+const DEFAULT_FORM: Form = { enabled: false, frequency: 'daily', keep: '7', includeBookmarks: true, saveToFiles: false };
 
 const toForm = (settings: Partial<ScheduleSettings>): Form => ({
   enabled: settings.enabled === true,
   frequency: settings.frequency ?? 'daily',
   keep: String(settings.keep ?? 7),
   includeBookmarks: settings.includeBookmarks !== false,
+  saveToFiles: settings.saveToFiles === true,
 });
 
 /** The whole number the field holds, or null when it is not a valid keep count. */
@@ -76,6 +82,8 @@ function describeLastRun(lastRun: LastRun | null | undefined): Message {
   if (!lastRun || !date) return { text: t('lastRunNever') };
   if (!lastRun.ok) return { text: t('lastRunFailed', lastRun.error || t('errorUnknown')), tone: TONE.error };
   if (lastRun.skipped) return { text: t('lastRunSkipped', date) };
+  // The backup was kept but its file could not be written.
+  if (lastRun.error) return { text: t('lastRunFileWarning', [date, lastRun.error]), tone: TONE.warning };
   return { text: t('lastRunOk', date), tone: TONE.success };
 }
 
@@ -98,6 +106,11 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
   const [keepError, setKeepError] = useState<string | null>(null);
   const [snapshots, setSnapshots] = useState<SnapshotMeta[] | null>(null);
   const [backingUp, setBackingUp] = useState(false);
+  /** Compare mode: rows get checkboxes; two selected snapshots can be compared. */
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [comparing, setComparing] = useState(false);
+  const [comparison, setComparison] = useState<{ from: string; to: string; diff: BackupDiff } | null>(null);
   const noAlarms = browser.features?.alarms === false;
 
   const applySettings = useCallback((settings: Partial<ScheduleSettings>) => {
@@ -129,7 +142,13 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
     const keep = parseKeep(next.keep);
     if (keep === null) return;
     const response = await send('SCHEDULE_SET', {
-      settings: { enabled: next.enabled, frequency: next.frequency, keep, includeBookmarks: next.includeBookmarks },
+      settings: {
+        enabled: next.enabled,
+        frequency: next.frequency,
+        keep,
+        includeBookmarks: next.includeBookmarks,
+        saveToFiles: next.saveToFiles,
+      },
     });
     if (response.ok) {
       applySettings(response.settings);
@@ -216,12 +235,49 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
     }
   }
 
+  function stopSelecting() {
+    setSelecting(false);
+    setSelected([]);
+  }
+
+  function toggleSelected(id: string, checked: boolean) {
+    setSelected((current) => (checked ? (current.includes(id) || current.length >= 2 ? current : [...current, id]) : current.filter((x) => x !== id)));
+  }
+
+  /** Loads both snapshots and diffs them, always older → newer whatever the selection order. */
+  async function compareSelected() {
+    const metas = (snapshots ?? []).filter((m) => selected.includes(m.id));
+    const [older, newer] = metas.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+    if (!older || !newer || comparing) return;
+    setComparing(true);
+    const [first, second] = await Promise.all([send('SNAPSHOT_GET', { id: older.id }), send('SNAPSHOT_GET', { id: newer.id })]);
+    setComparing(false);
+    if (!first.ok || !second.ok) {
+      setStatus(t('compareLoadFailed', errorDetail(first.ok ? second : first)), TONE.error);
+      return;
+    }
+    setComparison({
+      from: formatDate(older.createdAt, dateTimeFormat) ?? '',
+      to: formatDate(newer.createdAt, dateTimeFormat) ?? '',
+      diff: diffBackups(first.data, second.data),
+    });
+  }
+
+  function closeComparison() {
+    setComparison(null);
+    stopSelecting();
+  }
+
   const count = snapshots?.length ?? 0;
   const keepSummary = parseKeep(form.keep) ?? Number(saved.current.keep);
 
   return (
     <div id="backups-panel" className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-2 pb-4">
+        {comparison ? (
+          <SnapshotCompare from={comparison.from} to={comparison.to} diff={comparison.diff} onBack={closeComparison} />
+        ) : (
+        <>
         <section aria-labelledby="snapshots-heading" className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <h2 id="snapshots-heading" className="text-sm font-medium">
@@ -232,7 +288,28 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
                 {fmt(count)}
               </Badge>
             )}
+            {count >= 2 && (
+              <div className="ml-auto flex items-center gap-1">
+                {selecting ? (
+                  <>
+                    <Button id="btn-compare-run" size="sm" disabled={selected.length !== 2 || comparing} onClick={() => void compareSelected()}>
+                      {comparing && <Spinner data-icon="inline-start" />}
+                      {t('compareRun')}
+                    </Button>
+                    <Button id="btn-compare-cancel" variant="ghost" size="sm" onClick={stopSelecting}>
+                      {t('compareCancel')}
+                    </Button>
+                  </>
+                ) : (
+                  <Button id="btn-compare" variant="ghost" size="sm" onClick={() => setSelecting(true)}>
+                    <GitCompareIcon data-icon="inline-start" />
+                    {t('compareStart')}
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
+          {selecting && <p className="text-xs text-muted-foreground">{t('compareHint')}</p>}
 
           {snapshots === null ? (
             <div className="flex flex-col gap-2" aria-busy="true">
@@ -259,6 +336,10 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
                   key={meta.id}
                   meta={meta}
                   restoreDisabled={restoreRunning}
+                  selecting={selecting}
+                  checked={selected.includes(meta.id)}
+                  selectDisabled={!selected.includes(meta.id) && selected.length >= 2}
+                  onSelect={(checked) => toggleSelected(meta.id, checked)}
                   onRestore={(date) => void restoreSnapshot(meta, date)}
                   onDownload={() => void downloadSnapshot(meta)}
                   onDelete={() => void deleteSnapshot(meta)}
@@ -328,25 +409,37 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
               disabled={noAlarms}
               onChange={(includeBookmarks) => change({ includeBookmarks })}
             />
+            <SwitchRow
+              id="bk-files"
+              label={t('autoSaveFiles')}
+              description={t('autoSaveFilesHint', fmt(keepSummary))}
+              checked={form.saveToFiles}
+              disabled={noAlarms}
+              onChange={(saveToFiles) => change({ saveToFiles })}
+            />
           </FieldGroup>
           {noAlarms && (
             <p id="bk-unavailable" className="text-sm text-warning">
               {t('autoUnavailable')}
             </p>
           )}
-          <p id="bk-last-run" role="status" className={cn('text-xs text-muted-foreground', lastRun.tone === TONE.error && 'text-destructive')}>
+          <p id="bk-last-run" role="status" className={cn('text-xs text-muted-foreground', lastRun.tone === TONE.error && 'text-destructive', lastRun.tone === TONE.warning && 'text-warning')}>
             {lastRun.text}
           </p>
         </SettingsSection>
+        </>
+        )}
       </div>
 
-      <div className="flex flex-col gap-2 border-t bg-background px-4 py-3">
-        {count > 0 && <p className="text-center text-xs text-muted-foreground">{t('snapshotsNote')}</p>}
-        <Button id="btn-backup-now" size="lg" className="w-full" disabled={backingUp} onClick={() => void backupNow()}>
-          {backingUp ? <Spinner data-icon="inline-start" /> : <HistoryIcon data-icon="inline-start" />}
-          {backingUp ? t('backupNowWorking') : t('backupNow')}
-        </Button>
-      </div>
+      {!comparison && (
+        <div className="flex flex-col gap-2 border-t bg-background px-4 py-3">
+          {count > 0 && <p className="text-center text-xs text-muted-foreground">{t('snapshotsNote')}</p>}
+          <Button id="btn-backup-now" size="lg" className="w-full" disabled={backingUp} onClick={() => void backupNow()}>
+            {backingUp ? <Spinner data-icon="inline-start" /> : <HistoryIcon data-icon="inline-start" />}
+            {backingUp ? t('backupNowWorking') : t('backupNow')}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -354,12 +447,20 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
 function SnapshotRow({
   meta,
   restoreDisabled,
+  selecting,
+  checked,
+  selectDisabled,
+  onSelect,
   onRestore,
   onDownload,
   onDelete,
 }: {
   meta: SnapshotMeta;
   restoreDisabled: boolean;
+  selecting: boolean;
+  checked: boolean;
+  selectDisabled: boolean;
+  onSelect: (checked: boolean) => void;
   onRestore: (date: string) => void;
   onDownload: () => void;
   onDelete: () => void;
@@ -369,7 +470,7 @@ function SnapshotRow({
   const size = formatSize(meta.bytes);
   const tabs = meta.stats?.tabs ?? 0;
   const bookmarks = meta.stats?.bookmarks ?? 0;
-  const details = [`${fmt(tabs)} ${t('labelTabs').toLowerCase()}`, `${fmt(bookmarks)} ${t('labelBookmarks').toLowerCase()}`, size].filter(Boolean).join(' · ');
+  const details = [meta.scope?.title, `${fmt(tabs)} ${t('labelTabs').toLowerCase()}`, `${fmt(bookmarks)} ${t('labelBookmarks').toLowerCase()}`, size].filter(Boolean).join(' · ');
 
   // Delete needs a second click on the same button within a few seconds.
   const [armed, setArmed] = useState(false);
@@ -398,10 +499,28 @@ function SnapshotRow({
   return (
     <li>
       <Item variant="outline" size="sm" className="flex-nowrap">
+        {selecting && (
+          <Checkbox
+            checked={checked}
+            disabled={selectDisabled}
+            aria-label={t('compareSelectLabel', date)}
+            onCheckedChange={(value) => onSelect(value === true)}
+          />
+        )}
         <ItemContent className="min-w-0">
           {/* Date alone on the first line so it never truncates; reason + counts below. */}
           <ItemTitle className="w-full">
             <span className="truncate">{date}</span>
+            {meta.file && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span role="img" tabIndex={0} aria-label={t('snapshotFileSaved', meta.file.filename)} className="text-muted-foreground">
+                    <FileCheckIcon className="size-3.5" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{meta.file.filename}</TooltipContent>
+              </Tooltip>
+            )}
           </ItemTitle>
           <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
             <Badge variant={SAFETY_REASONS.has(meta.reason) ? 'outline' : 'secondary'} className="font-normal">

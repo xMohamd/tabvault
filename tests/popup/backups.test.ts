@@ -186,7 +186,9 @@ describe('automatic backups autosave', () => {
 
     await user.click($('#bk-enabled'));
     await waitFor(() => expect(callsOf('SCHEDULE_SET')).toHaveLength(1));
-    expect(callsOf('SCHEDULE_SET')[0]).toEqual({ settings: { enabled: true, frequency: 'daily', keep: 7, includeBookmarks: true } });
+    expect(callsOf('SCHEDULE_SET')[0]).toEqual({
+      settings: { enabled: true, frequency: 'daily', keep: 7, includeBookmarks: true, saveToFiles: false },
+    });
     await findToast(t('autoSaved'));
     expect(isOn('#bk-enabled')).toBe(true);
 
@@ -280,5 +282,142 @@ describe('automatic backups autosave', () => {
     await user.click($('#bk-enabled'));
     await findToast(t('autoSaveFailed', 'nope'));
     await waitFor(() => expect(isOn('#bk-enabled')).toBe(false));
+  });
+});
+
+describe('automatic backup files', () => {
+  it('autosaves the "also save as a file" switch', async () => {
+    const user = userEvent.setup();
+    routeSend({ SCHEDULE_SET: (payload) => ({ ok: true, settings: payload.settings }) });
+    renderApp();
+    await openTab(user, 'backups');
+    await waitFor(() => expect(callsOf('SNAPSHOTS_LIST')).toHaveLength(1));
+    await openAutoSection(user);
+
+    expect(isOn('#bk-files')).toBe(false);
+    expect(screen.getByLabelText(t('autoSaveFiles'))).toBe($('#bk-files'));
+    expect(screen.getByText(t('autoSaveFilesHint', '7'))).toBeTruthy();
+    await user.click($('#bk-files'));
+    await waitFor(() => expect(callsOf('SCHEDULE_SET')).toHaveLength(1));
+    expect(callsOf('SCHEDULE_SET')[0]?.settings.saveToFiles).toBe(true);
+    await findToast(t('autoSaved'));
+    expect(isOn('#bk-files')).toBe(true);
+  });
+
+  it('shows a file indicator on snapshots that were saved as files', async () => {
+    const user = userEvent.setup();
+    routeSend(listing([{ ...snapshot, reason: 'scheduled', file: { downloadId: 4, filename: 'TabVault/tabs-backup-x.json' } }, { ...snapshot, id: 'snap-2' }]));
+    renderApp();
+    await openTab(user, 'backups');
+    await waitFor(() => expect(document.querySelectorAll('#snapshot-list > li')).toHaveLength(2));
+    const rows = document.querySelectorAll<HTMLElement>('#snapshot-list > li');
+    expect(within(rows[0]!).getByRole('img', { name: t('snapshotFileSaved', 'TabVault/tabs-backup-x.json') })).toBeTruthy();
+    expect(within(rows[1]!).queryByRole('img')).toBeNull();
+  });
+
+  it('warns when the last backup could not be saved as a file', async () => {
+    const user = userEvent.setup();
+    routeSend({
+      SNAPSHOTS_LIST: () => ({ ok: true, snapshots: [], settings, lastRun: { at: '2025-02-03T10:00:00.000Z', ok: true, error: 'File not saved: disk full' } }),
+    });
+    renderApp();
+    await openTab(user, 'backups');
+    await openAutoSection(user);
+    await waitFor(() => expect($('#bk-last-run').textContent).toContain('File not saved: disk full'));
+    expect($('#bk-last-run').className).toContain('text-warning');
+  });
+});
+
+describe('quick saves', () => {
+  it('labels a quick save and shows what was saved', async () => {
+    const user = userEvent.setup();
+    routeSend(
+      listing([{ ...snapshot, reason: 'quick', scope: { windowId: 5, title: 'Window: GitHub' }, stats: { ...snapshot.stats, tabs: 6, bookmarks: 0 } }]),
+    );
+    renderApp();
+    await openTab(user, 'backups');
+    const item = await waitFor(() => $('#snapshot-list > li'));
+    expect(within(item).getByText(t('reasonQuick'))).toBeTruthy();
+    expect(within(item).getByText(/^Window: GitHub · 6 tabs/)).toBeTruthy();
+  });
+});
+
+describe('compare snapshots', () => {
+  const tab = (url: string, title = url) => ({ url, title, pinned: false });
+  const backupOf = (urls: string[]) => ({
+    schemaVersion: '1.1',
+    exportedAt: null,
+    source: {},
+    windows: [{ ungroupedTabs: urls.map((u) => tab(u)), groups: [] }],
+    bookmarks: [],
+  });
+  const older = { ...snapshot, id: 'old', createdAt: '2025-02-03T10:00:00.000Z' };
+  const newer = { ...snapshot, id: 'new', createdAt: '2025-02-08T14:13:00.000Z' };
+  const bodies: Record<string, unknown> = {
+    old: backupOf(['https://keep.test/', 'https://gone.test/']),
+    new: backupOf(['https://keep.test/', 'https://fresh.test/', 'https://fresh2.test/']),
+  };
+  const route = () => routeSend({ ...listing([newer, older]), SNAPSHOT_GET: (p) => ({ ok: true, data: bodies[p.id as string] }) });
+
+  it('compares older → newer whatever the selection order, then goes back', async () => {
+    const user = userEvent.setup();
+    route();
+    renderApp();
+    await openTab(user, 'backups');
+    await waitFor(() => expect(document.querySelectorAll('#snapshot-list > li')).toHaveLength(2));
+
+    await user.click($('#btn-compare'));
+    expect(($('#btn-compare-run') as HTMLButtonElement).disabled).toBe(true);
+    const boxes = screen.getAllByRole('checkbox');
+    expect(boxes).toHaveLength(2);
+    await user.click(boxes[0]!); // the newer one first
+    expect(($('#btn-compare-run') as HTMLButtonElement).disabled).toBe(true);
+    await user.click(boxes[1]!);
+    expect(($('#btn-compare-run') as HTMLButtonElement).disabled).toBe(false);
+    await user.click($('#btn-compare-run'));
+
+    await waitFor(() => expect($('#snapshot-compare')).toBeTruthy());
+    expect(callsOf('SNAPSHOT_GET').map((c) => c.id).sort()).toEqual(['new', 'old']);
+    const fmtDate = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    expect($('#compare-title').textContent).toBe(
+      t('compareTitle', [fmtDate.format(new Date(older.createdAt)), fmtDate.format(new Date(newer.createdAt))]),
+    );
+    const summary = $('#compare-summary').textContent ?? '';
+    expect(summary).toContain(t('compareChipTabsAdded', '2'));
+    expect(summary).toContain(t('compareChipTabsRemoved', '1'));
+
+    await user.click(screen.getByRole('button', { name: t('compareAddedTabs', '2') }));
+    expect(screen.getByText('https://fresh.test/')).toBeTruthy();
+
+    await user.click($('#compare-back'));
+    await waitFor(() => expect(document.querySelector('#snapshot-compare')).toBeNull());
+    expect(document.querySelectorAll('#snapshot-list > li')).toHaveLength(2);
+    expect(document.querySelector('#btn-compare')).toBeTruthy();
+  });
+
+  it('says there are no differences for identical snapshots', async () => {
+    const user = userEvent.setup();
+    bodies.new = bodies.old;
+    route();
+    try {
+      renderApp();
+      await openTab(user, 'backups');
+      await waitFor(() => expect(document.querySelectorAll('#snapshot-list > li')).toHaveLength(2));
+      await user.click($('#btn-compare'));
+      for (const box of screen.getAllByRole('checkbox')) await user.click(box);
+      await user.click($('#btn-compare-run'));
+      await waitFor(() => expect(screen.getByText(t('compareNone'))).toBeTruthy());
+    } finally {
+      bodies.new = backupOf(['https://keep.test/', 'https://fresh.test/', 'https://fresh2.test/']);
+    }
+  });
+
+  it('only offers Compare with at least two snapshots', async () => {
+    const user = userEvent.setup();
+    routeSend(listing());
+    renderApp();
+    await openTab(user, 'backups');
+    await waitFor(() => expect(document.querySelectorAll('#snapshot-list > li')).toHaveLength(1));
+    expect(document.querySelector('#btn-compare')).toBeNull();
   });
 });
