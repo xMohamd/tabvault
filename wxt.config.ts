@@ -21,7 +21,31 @@ export default defineConfig({
     short_name: '__MSG_extName__',
     description: '__MSG_extDescription__',
     default_locale: 'en',
-    permissions: ['tabs', 'tabGroups', 'bookmarks', 'downloads', 'storage', 'unlimitedStorage', 'alarms'],
+    permissions: [
+      'tabs',
+      'tabGroups',
+      'bookmarks',
+      'downloads',
+      'storage',
+      'unlimitedStorage',
+      'alarms',
+      'contextMenus',
+      // Firefox containers: read names/colors and reopen tabs in them.
+      ...(browser === 'firefox' ? ['contextualIdentities', 'cookies'] : []),
+    ],
+    commands: {
+      _execute_action: {
+        suggested_key: { default: 'Alt+Shift+M' },
+      },
+      'backup-now': {
+        suggested_key: { default: 'Alt+Shift+B' },
+        description: '__MSG_commandBackupNow__',
+      },
+      'save-window': {
+        suggested_key: { default: 'Alt+Shift+S' },
+        description: '__MSG_commandSaveWindow__',
+      },
+    },
     incognito: 'not_allowed',
     action: {
       default_title: '__MSG_extActionTitle__',

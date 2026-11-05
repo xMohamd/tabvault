@@ -1356,5 +1356,13 @@
         "example": "12"
       }
     }
+  },
+  "commandBackupNow": {
+    "message": "Back up all tabs and bookmarks now",
+    "description": "Keyboard shortcut description (chrome://extensions/shortcuts): take a snapshot."
+  },
+  "commandSaveWindow": {
+    "message": "Save the current window as a snapshot",
+    "description": "Keyboard shortcut description: quick-save the focused window."
   }
 }

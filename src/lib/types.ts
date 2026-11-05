@@ -24,6 +24,10 @@ export interface ExportOptions {
   unwrapPlaceholders?: boolean;
   includeWindowLayout?: boolean;
   filters?: ExportFilters;
+  /** Only this window, or only this tab group (quick saves from the menu/shortcut). */
+  scope?: { windowId?: number; groupId?: number };
+  /** Encrypt the downloaded file with this password (EXPORT only; never stored). */
+  password?: string;
 }
 
 export interface ExportStats {
@@ -61,6 +65,12 @@ export interface ImportOptions {
   skipOpenTabs?: boolean;
   skipBlankTabs?: boolean;
   focusRestored?: boolean;
+  /** Where restored tabs go. Default 'new-windows' (one browser window per backup window). */
+  target?: 'new-windows' | 'current-window';
+  /** Add tabs to an existing group with the same title in the target window instead of creating another. */
+  mergeGroups?: boolean;
+  /** Firefox: reopen tabs in their containers (matched by name; created if missing). Default true. */
+  restoreContainers?: boolean;
 }
 
 export interface ImportProgress {
@@ -103,7 +113,8 @@ export interface ImportState {
 
 // ---------- snapshots ----------
 
-export type SnapshotReason = 'scheduled' | 'manual' | 'pre-replace' | 'pre-import';
+/** 'quick' = saved from the right-click menu or keyboard shortcut (a window or a tab group). */
+export type SnapshotReason = 'scheduled' | 'manual' | 'quick' | 'pre-replace' | 'pre-import';
 export type ScheduleFrequency = 'hourly' | 'daily' | 'weekly';
 
 export interface ScheduleSettings {
@@ -112,6 +123,8 @@ export interface ScheduleSettings {
   /** 1..50 */
   keep: number;
   includeBookmarks: boolean;
+  /** Also write each automatic backup as a file in Downloads/TabVault (kept to `keep` files). */
+  saveToFiles: boolean;
 }
 
 export interface SnapshotMeta {
@@ -121,6 +134,10 @@ export interface SnapshotMeta {
   stats: ExportStats;
   bytes: number;
   hash: string;
+  /** Set for quick saves: what was saved. */
+  scope?: { windowId?: number; groupId?: number; title?: string };
+  /** Set when the snapshot was also written to a file (automatic backups as files). */
+  file?: { downloadId: number; filename: string };
 }
 
 export interface LastRun {

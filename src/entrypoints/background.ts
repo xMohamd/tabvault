@@ -13,6 +13,7 @@ import { detectBrowserAsync } from '@/lib/browser-detect';
 import { UniversalExporter } from '@/lib/exporter';
 import { UniversalImporter } from '@/lib/importer';
 import * as scheduler from '@/lib/backup-scheduler';
+import { saveJsonFile } from '@/lib/downloads';
 import type { Backup } from '@/lib/schema';
 import type {
   DiagnosticsReport,
@@ -130,42 +131,10 @@ async function handleExport(
   return result.ok ? { ...result, stats } : result;
 }
 
-/**
- * Saves JSON through the downloads API. Chrome's service worker has no
- * URL.createObjectURL, so it gets a data: URL; Firefox's event page uses a blob.
- */
+/** Saves JSON through the shared downloads helper; the reply shape is the protocol's. */
 async function downloadJson(data: Backup, filename: string, saveAs: boolean): Promise<Response<'SNAPSHOT_DOWNLOAD'>> {
-  const json = JSON.stringify(data, null, 2);
-  let url: string;
-  let revoke = () => {};
-  if (typeof URL.createObjectURL === 'function') {
-    url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-    revoke = () => setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  } else {
-    url = `data:application/json;base64,${utf8ToBase64(json)}`;
-  }
-
-  try {
-    await browser.downloads.download({ url, filename, saveAs, conflictAction: 'uniquify' });
-    return { ok: true, filename };
-  } catch (error) {
-    const message = errorMessage(error);
-    if (/cancel/i.test(message)) return { ok: false, cancelled: true, error: message };
-    logger.error('DOWNLOAD_FAILED', { filename }, error);
-    return { ok: false, error: message };
-  } finally {
-    revoke();
-  }
-}
-
-function utf8ToBase64(text: string): string {
-  const bytes = new TextEncoder().encode(text);
-  const CHUNK = 0x8000;
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-  }
-  return btoa(binary);
+  const result = await saveJsonFile(data, filename, { saveAs });
+  return result.ok ? { ok: true, filename: result.filename } : result;
 }
 
 // ---------- import ----------

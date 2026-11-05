@@ -24,7 +24,13 @@ import type {
 } from './types';
 
 export const SCHEDULE_ALARM = 'tabvault:auto-backup';
-export const DEFAULT_SETTINGS: ScheduleSettings = { enabled: false, frequency: 'daily', keep: 7, includeBookmarks: true };
+export const DEFAULT_SETTINGS: ScheduleSettings = {
+  enabled: false,
+  frequency: 'daily',
+  keep: 7,
+  includeBookmarks: true,
+  saveToFiles: false,
+};
 
 const SETTINGS_KEY = 'autoBackup:settings';
 const LAST_RUN_KEY = 'autoBackup:lastRun';
@@ -36,7 +42,7 @@ const KEEP_MIN = 1;
 const KEEP_MAX = 50;
 const KEEP_SAFETY = 3;
 const SAFETY_REASONS = new Set<string>(['pre-replace', 'pre-import']);
-const REASONS = new Set<string>(['scheduled', 'manual', 'pre-replace', 'pre-import']);
+const REASONS = new Set<string>(['scheduled', 'manual', 'quick', 'pre-replace', 'pre-import']);
 
 const isFrequency = (v: unknown): v is ScheduleFrequency => typeof v === 'string' && Object.hasOwn(PERIODS, v);
 
@@ -69,6 +75,7 @@ function validateSettings(raw: Record<string, unknown> = {}): ScheduleSettings {
     keep: Number.isInteger(keep) && keep >= KEEP_MIN && keep <= KEEP_MAX ? keep : DEFAULT_SETTINGS.keep,
     includeBookmarks:
       typeof raw.includeBookmarks === 'boolean' ? raw.includeBookmarks : DEFAULT_SETTINGS.includeBookmarks,
+    saveToFiles: typeof raw.saveToFiles === 'boolean' ? raw.saveToFiles : DEFAULT_SETTINGS.saveToFiles,
   };
 }
 
@@ -202,11 +209,13 @@ function prune(index: SnapshotMeta[], keep: number): { kept: SnapshotMeta[]; rem
 interface SnapshotOptions {
   browser?: BrowserInfo;
   includeBookmarks?: boolean;
+  /** Quick saves: only this window or tab group; `title` labels the snapshot in the list. */
+  scope?: { windowId?: number; groupId?: number; title?: string };
 }
 
 async function runSnapshot(
   reason: string,
-  { browser: given, includeBookmarks }: SnapshotOptions = {},
+  { browser: given, includeBookmarks, scope }: SnapshotOptions = {},
 ): Promise<{ meta: SnapshotMeta | null; skipped: 'unchanged' | null }> {
   if (!REASONS.has(reason)) throw new RangeError(`Unknown snapshot reason: ${reason}`);
   const settings = await getSettings();
@@ -219,6 +228,7 @@ async function runSnapshot(
     includeBookmarks: withBookmarks,
     includeFavicons: false,
     filters: { excludeInternal: true },
+    ...(scope ? { scope: { windowId: scope.windowId, groupId: scope.groupId } } : {}),
   });
 
   const hash = contentHash(data);
@@ -238,6 +248,7 @@ async function runSnapshot(
     stats,
     bytes: json.length,
     hash,
+    ...(scope ? { scope } : {}),
   };
 
   await storage().set({ [bodyKey(id)]: data });

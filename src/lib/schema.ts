@@ -23,6 +23,8 @@ export interface BackupTab {
   index?: number;
   active?: boolean;
   favIconUrl?: string;
+  /** Firefox container (contextual identity), matched by name on restore. */
+  container?: { name: string; color?: string; icon?: string };
   metadata?: Record<string, unknown>;
 }
 
@@ -123,6 +125,11 @@ function normalizeTab(raw: unknown, warnings: NormalizeWarnings): BackupTab | nu
   if (Number.isInteger(raw.index) && (raw.index as number) >= 0) tab.index = raw.index as number;
   if (raw.active === true) tab.active = true;
   if (typeof raw.favIconUrl === 'string' && raw.favIconUrl) tab.favIconUrl = raw.favIconUrl;
+  if (isObject(raw.container) && typeof raw.container.name === 'string' && raw.container.name.trim()) {
+    tab.container = { name: raw.container.name.trim().slice(0, 100) };
+    if (typeof raw.container.color === 'string') tab.container.color = raw.container.color;
+    if (typeof raw.container.icon === 'string') tab.container.icon = raw.container.icon;
+  }
   if (isObject(raw.metadata)) tab.metadata = raw.metadata;
   return tab;
 }
