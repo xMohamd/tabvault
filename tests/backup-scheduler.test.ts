@@ -160,3 +160,99 @@ describe('scheduler through the real exporter', () => {
     expect(Array.isArray(snap.windows)).toBe(true);
   });
 });
+
+describe('automatic backups saved as files', () => {
+  let n = 0;
+  const calls = fb.calls as unknown as { downloadsRemoveFile?: number[]; downloadsErase?: Array<{ id: number }> };
+  const exporter = () => ({
+    async export() {
+      return {
+        data: { schemaVersion: '1.1', exportedAt: null, source: {}, windows: [{ n: ++n }] as never, bookmarks: [] },
+        stats: { windows: 1, tabs: 1, groups: 0, bookmarks: 0, skippedTabs: 0 },
+      };
+    },
+  });
+  const reset = async (settings: Partial<import('../src/lib/types').ScheduleSettings>) => {
+    fb.reset();
+    m._setExporterFactory(exporter);
+    await m.saveSettings({ keep: 2, ...settings });
+  };
+  const files = () => fb.downloads as Array<{ filename: string; saveAs: boolean }>;
+
+  it('writes a file only for scheduled runs with saveToFiles on, and records it', async () => {
+    await reset({ saveToFiles: true });
+    const manual = must(await m.createSnapshot('manual', { browser: chromeInfo }));
+    expect(manual.file).toBeUndefined();
+    expect(files()).toHaveLength(0);
+
+    const meta = must(await m.handleAlarm({ name: m.SCHEDULE_ALARM }));
+    expect(files()).toHaveLength(1);
+    expect(files()[0]?.filename).toMatch(/^TabVault\/tabs-backup-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.json$/);
+    expect(files()[0]?.saveAs).toBe(false);
+    expect(meta.file).toEqual({ downloadId: 1, filename: files()[0]?.filename });
+    expect(must((await m.listSnapshots()).find((x) => x.id === meta.id)).file).toEqual(meta.file);
+    expect((await m.getLastRun())).toMatchObject({ ok: true });
+    expect((await m.getLastRun())?.error).toBeUndefined();
+  });
+
+  it('writes nothing when saveToFiles is off', async () => {
+    await reset({ saveToFiles: false });
+    const meta = must(await m.handleAlarm({ name: m.SCHEDULE_ALARM }));
+    expect(meta.file).toBeUndefined();
+    expect(files()).toHaveLength(0);
+  });
+
+  it('formats filenames in local time', () => {
+    expect(m.backupFilename(new Date(2025, 10, 5, 3, 4, 9))).toBe('TabVault/tabs-backup-2025-11-05_03-04-09.json');
+  });
+
+  it('pruning removes the pruned snapshot files; deleteSnapshot leaves files alone', async () => {
+    await reset({ saveToFiles: true });
+    const first = must(await m.handleAlarm({ name: m.SCHEDULE_ALARM }));
+    await sleep(3);
+    const second = must(await m.handleAlarm({ name: m.SCHEDULE_ALARM }));
+    await sleep(3);
+    expect(calls.downloadsRemoveFile ?? []).toHaveLength(0);
+
+    await m.deleteSnapshot(second.id); // UI delete: the file stays
+    expect(calls.downloadsRemoveFile ?? []).toHaveLength(0);
+    expect(calls.downloadsErase ?? []).toHaveLength(0);
+
+    await m.handleAlarm({ name: m.SCHEDULE_ALARM });
+    await sleep(3);
+    await m.handleAlarm({ name: m.SCHEDULE_ALARM }); // keep=2: the first one is pruned
+    expect(calls.downloadsRemoveFile).toEqual([must(first.file).downloadId]);
+    expect(calls.downloadsErase).toEqual([{ id: must(first.file).downloadId }]);
+  });
+
+  it('a file that cannot be removed does not fail the backup', async () => {
+    await reset({ saveToFiles: true });
+    const remove = vi.spyOn(browser.downloads, 'removeFile').mockRejectedValue(new Error('gone'));
+    try {
+      for (let i = 0; i < 3; i++) {
+        must(await m.handleAlarm({ name: m.SCHEDULE_ALARM }));
+        await sleep(3);
+      }
+      expect(remove).toHaveBeenCalledTimes(1);
+      expect((await m.listSnapshots())).toHaveLength(2);
+      expect(calls.downloadsErase).toHaveLength(1); // erase still attempted
+      expect((await m.getLastRun())?.ok).toBe(true);
+    } finally {
+      remove.mockRestore();
+    }
+  });
+
+  it('a failed file write keeps the snapshot and reports a warning', async () => {
+    await reset({ saveToFiles: true });
+    const download = vi.spyOn(browser.downloads, 'download').mockRejectedValue(new Error('disk full'));
+    try {
+      const meta = must(await m.handleAlarm({ name: m.SCHEDULE_ALARM }));
+      expect(meta.file).toBeUndefined();
+      expect(await m.listSnapshots()).toHaveLength(1);
+      expect(await m.getSnapshot(meta.id)).toBeTruthy();
+      expect(await m.getLastRun()).toMatchObject({ ok: true, error: 'File not saved: disk full' });
+    } finally {
+      download.mockRestore();
+    }
+  });
+});

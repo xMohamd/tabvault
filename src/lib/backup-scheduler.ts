@@ -10,6 +10,7 @@
 import { browser } from 'wxt/browser';
 import { detectBrowserAsync, type BrowserInfo } from './browser-detect';
 import { logger } from './logger';
+import { saveJsonFile } from './downloads';
 // Static on purpose: Chrome forbids dynamic import() inside service workers.
 import { UniversalExporter } from './exporter';
 import type { Backup } from './schema';
@@ -128,9 +129,15 @@ export async function ensureAlarm(): Promise<void> {
 export async function handleAlarm(alarm: { name?: string } | null | undefined): Promise<SnapshotMeta | null> {
   if (alarm?.name !== SCHEDULE_ALARM) return null;
   try {
-    const { meta, skipped } = await enqueue(() => runSnapshot('scheduled', {}));
+    const { meta, skipped, fileError } = await enqueue(() => runSnapshot('scheduled', {}));
+    const at = new Date().toISOString();
+    // A failed file write keeps the snapshot: ok stays true and `error` carries the warning.
     await setLastRun(
-      skipped ? { at: new Date().toISOString(), ok: true, skipped } : { at: new Date().toISOString(), ok: true },
+      skipped
+        ? { at, ok: true, skipped }
+        : fileError
+          ? { at, ok: true, error: `File not saved: ${fileError}` }
+          : { at, ok: true },
     );
     return meta;
   } catch (error) {
@@ -213,10 +220,38 @@ interface SnapshotOptions {
   scope?: { windowId?: number; groupId?: number; title?: string };
 }
 
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** `TabVault/tabs-backup-YYYY-MM-DD_HH-mm-ss.json` in local time. */
+export function backupFilename(date: Date = new Date()): string {
+  const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const clock = `${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
+  return `TabVault/tabs-backup-${day}_${clock}.json`;
+}
+
+/**
+ * Deletes the file of an automatically pruned snapshot, then its entry in the downloads list.
+ * Each step is best-effort: the user may already have moved or deleted the file.
+ */
+async function removeBackupFile(meta: SnapshotMeta): Promise<void> {
+  if (!meta.file) return;
+  const { downloadId } = meta.file;
+  try {
+    await browser.downloads.removeFile(downloadId);
+  } catch (error) {
+    logger.warn('BACKUP_FILE_REMOVE_FAILED', { id: meta.id, downloadId }, error);
+  }
+  try {
+    await browser.downloads.erase({ id: downloadId });
+  } catch (error) {
+    logger.warn('BACKUP_FILE_ERASE_FAILED', { id: meta.id, downloadId }, error);
+  }
+}
+
 async function runSnapshot(
   reason: string,
   { browser: given, includeBookmarks, scope }: SnapshotOptions = {},
-): Promise<{ meta: SnapshotMeta | null; skipped: 'unchanged' | null }> {
+): Promise<{ meta: SnapshotMeta | null; skipped: 'unchanged' | null; fileError?: string }> {
   if (!REASONS.has(reason)) throw new RangeError(`Unknown snapshot reason: ${reason}`);
   const settings = await getSettings();
   const resolvedBrowser = given ?? (await detectBrowserAsync());
@@ -251,18 +286,34 @@ async function runSnapshot(
     ...(scope ? { scope } : {}),
   };
 
+  // Scheduled backups can also be written to Downloads. A failed write never fails the snapshot.
+  let fileError: string | undefined;
+  if (reason === 'scheduled' && settings.saveToFiles) {
+    try {
+      const saved = await saveJsonFile(data, backupFilename(), { saveAs: false });
+      if (saved.ok) meta.file = { downloadId: saved.downloadId, filename: saved.filename };
+      else fileError = saved.error;
+    } catch (error) {
+      fileError = error instanceof Error ? error.message : String(error);
+    }
+    if (fileError) logger.warn('BACKUP_FILE_SAVE_FAILED', { id }, new Error(fileError));
+  }
+
   await storage().set({ [bodyKey(id)]: data });
   const { kept, removed } = prune([meta, ...index], settings.keep);
   try {
     await storage().set({ [INDEX_KEY]: kept });
   } catch (error) {
     await storage().remove(bodyKey(id)).catch(() => {});
+    if (meta.file) await removeBackupFile(meta);
     throw error;
   }
   if (removed.length) await storage().remove(removed.map((m) => bodyKey(m.id)));
+  // Automatic pruning deletes the files the extension created.
+  for (const old of removed) await removeBackupFile(old);
 
   logger.info('SNAPSHOT_CREATED', { id, reason, bytes: meta.bytes, pruned: removed.length });
-  return { meta, skipped: null };
+  return { meta, skipped: null, ...(fileError ? { fileError } : {}) };
 }
 
 /**
@@ -288,6 +339,11 @@ export async function getSnapshot(id: string): Promise<Backup | null> {
   return (body as Backup | undefined) ?? null;
 }
 
+/**
+ * Deletes a snapshot from the extension's storage only. Its backup file (`meta.file`) is
+ * deliberately left alone: the user asked to delete the snapshot, not their file. Only
+ * automatic pruning removes files the extension created.
+ */
 export async function deleteSnapshot(id: string): Promise<void> {
   await enqueue(async () => {
     const index = await readIndex();
