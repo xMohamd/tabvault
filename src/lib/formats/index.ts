@@ -3,11 +3,20 @@
  */
 
 import { BackupFormatError, emptyBackup, normalizeBackup, type Backup } from '../schema';
+import { isEncryptedEnvelope, type EncryptedEnvelope } from '../crypto';
 import { assertSize, isObject, TabBudget, makeTab, markTruncated } from './common';
 import { convertOneTab, looksLikeOneTab } from './onetab';
 import { convertSessionBuddy, isSessionBuddyBackup, looksLikeSessionBuddy } from './session-buddy';
 import { convertNetscapeHtml, looksLikeNetscapeHtml } from './netscape-html';
 import { convertFirefoxBookmarks, looksLikeFirefoxBookmarks } from './firefox-bookmarks';
+
+/** The file is a password-protected backup: decrypt `envelope`, then parse the result. */
+export class EncryptedBackupError extends BackupFormatError {
+  constructor(readonly envelope: EncryptedEnvelope) {
+    super('The backup is password-protected.');
+    this.name = 'EncryptedBackupError';
+  }
+}
 
 export type BackupFormat =
   | 'native'
@@ -86,6 +95,7 @@ export function parseBackupFile(text: string, ctx: ParseContext = {}): ParsedBac
     } catch {
       throw new BackupFormatError('The file looks like JSON but could not be parsed.');
     }
+    if (isEncryptedEnvelope(json)) throw new EncryptedBackupError(json);
     if (looksNative(json)) return { data: finish(json), format: 'native', label: 'Native backup' };
     if (looksLikeFirefoxBookmarks(json)) {
       return {
