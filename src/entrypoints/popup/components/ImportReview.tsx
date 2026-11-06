@@ -28,7 +28,15 @@ import type { BrowserInfo } from '@/lib/browser-detect';
 import type { BookmarkStrategy, ImportOptions, RestoreMode } from '@/lib/types';
 import { errorDetail, fmt, formatDate, MANY_TABS_THRESHOLD, TONE, type SetStatus } from '../shared';
 import type { Candidate, ImportCandidateApi } from '../hooks/useImportCandidate';
-import { defaultSelection, PreviewCard, selectedData, selectedTabCount, type WindowSelection } from './PreviewTree';
+import {
+  defaultSelection,
+  PreviewCard,
+  selectedData,
+  selectedTabCount,
+  selectionForKeys,
+  type OnlyUrls,
+  type WindowSelection,
+} from './PreviewTree';
 import { useFocusOnMount } from './ImportProgress';
 import { SettingsSection, SwitchRow } from './settings';
 import { ToneAlert } from './ToneAlert';
@@ -42,6 +50,9 @@ export interface RestoreSettings {
   restoreLayout: boolean;
   bmStrategy: BookmarkStrategy;
   skipDupes: boolean;
+  target: NonNullable<ImportOptions['target']>;
+  mergeGroups: boolean;
+  restoreContainers: boolean;
 }
 export const DEFAULT_SETTINGS: RestoreSettings = {
   restoreMode: 'discard',
@@ -50,12 +61,19 @@ export const DEFAULT_SETTINGS: RestoreSettings = {
   restoreLayout: true,
   bmStrategy: 'merge',
   skipDupes: true,
+  target: 'new-windows',
+  mergeGroups: false,
+  restoreContainers: true,
 };
 
 const LOAD_MODES: Array<[RestoreMode, string]> = [
   ['discard', 'loadDiscard'],
   ['lazy', 'loadLazy'],
   ['load', 'loadLoad'],
+];
+const TARGETS: Array<[RestoreSettings['target'], string]> = [
+  ['new-windows', 'importTargetNew'],
+  ['current-window', 'importTargetCurrent'],
 ];
 const BOOKMARK_STRATEGIES: Array<[BookmarkStrategy, string]> = [
   ['merge', 'bmMerge'],
@@ -98,6 +116,9 @@ export function ImportReview(props: Props) {
   const { candidate, browser, running, settings, fileInfo, importMessage, setImportMessage, setStatus } = props;
   const { data, hasTabs, hasBookmarks } = candidate;
   const [selection, setSelection] = useState<WindowSelection[]>(() => defaultSelection(data));
+  // Tab-level filter from the search ("Select only matching"), and the ticks to bring back when it is cleared.
+  const [onlyUrls, setOnlyUrls] = useState<OnlyUrls | null>(null);
+  const [selectionBeforeFilter, setSelectionBeforeFilter] = useState<WindowSelection[] | null>(null);
   const bookmarksSupported = browser.features?.bookmarks !== false;
   const [importTabs, setImportTabs] = useState(hasTabs);
   const [importBookmarks, setImportBookmarks] = useState(hasBookmarks && bookmarksSupported);
@@ -108,14 +129,38 @@ export function ImportReview(props: Props) {
   const focusOnMount = useFocusOnMount();
   const importButton = useRef<HTMLButtonElement>(null);
 
+  const currentWindow = settings.target === 'current-window';
+  const tabGroupsSupported = browser.features?.tabGroups !== false;
+  const hasContainers = data.windows.some((win) =>
+    [...win.ungroupedTabs, ...win.groups.flatMap((group) => group.tabs)].some((tab) => tab.container),
+  );
+  const showContainers = browser.key === 'firefox' && hasContainers;
   const tabsOn = hasTabs && importTabs;
   const bookmarksOn = hasBookmarks && bookmarksSupported && importBookmarks;
-  const selectedTabs = selectedTabCount(data, selection);
+  const selectedTabs = selectedTabCount(data, selection, onlyUrls ?? undefined);
   const restoringTabs = tabsOn ? selectedTabs : 0;
   const replacing = settings.bmStrategy === 'replace';
   const many = tabsOn && selectedTabs > MANY_TABS_THRESHOLD;
   const nothingToRestore = !((tabsOn && selectedTabs > 0) || bookmarksOn);
   const startDisabled = running || starting || nothingToRestore;
+
+  const changeSelection = (next: WindowSelection[]) => {
+    // A manual change replaces the search filter and keeps what the user just did.
+    setSelection(next);
+    setOnlyUrls(null);
+    setSelectionBeforeFilter(null);
+  };
+  const selectOnly = (keys: OnlyUrls) => {
+    setSelectionBeforeFilter((before) => before ?? selection);
+    setSelection(selectionForKeys(data, keys));
+    setOnlyUrls(keys);
+  };
+  const clearOnly = () => {
+    if (!onlyUrls) return;
+    if (selectionBeforeFilter) setSelection(selectionBeforeFilter);
+    setOnlyUrls(null);
+    setSelectionBeforeFilter(null);
+  };
 
   const patch = (next: Partial<RestoreSettings>) => props.setSettings({ ...settings, ...next });
 
@@ -146,14 +191,17 @@ export function ImportReview(props: Props) {
       skipDuplicateBookmarks: settings.skipDupes && !replacing,
       importBookmarklets,
       restoreMode: settings.restoreMode,
-      restoreWindowLayout: settings.restoreLayout,
+      restoreWindowLayout: settings.restoreLayout && !currentWindow,
+      target: settings.target,
+      mergeGroups: tabGroupsSupported && settings.mergeGroups,
+      ...(showContainers ? { restoreContainers: settings.restoreContainers } : {}),
       skipOpenTabs: settings.skipOpen,
       skipBlankTabs: settings.skipBlank,
       focusRestored: false,
     };
     setImportMessage(null);
     setStarting(true);
-    const response = await send('IMPORT_START', { data: selectedData(data, selection), options });
+    const response = await send('IMPORT_START', { data: selectedData(data, selection, onlyUrls ?? undefined), options });
     setStarting(false);
     if (!response.ok) {
       const message = t('importStartFailed', errorDetail(response));
@@ -165,6 +213,7 @@ export function ImportReview(props: Props) {
   }
 
   const loadModeLabel = t(LOAD_MODES.find(([value]) => value === settings.restoreMode)?.[1] ?? 'loadDiscard');
+  const tabOptionsSummary = currentWindow ? `${loadModeLabel} · ${t('importTargetCurrent')}` : loadModeLabel;
   const strategyLabel = t(BOOKMARK_STRATEGIES.find(([value]) => value === settings.bmStrategy)?.[1] ?? 'bmMerge');
   const noTabGroups = browser.features?.tabGroups === false;
 
@@ -216,7 +265,14 @@ export function ImportReview(props: Props) {
           </div>
         )}
 
-        {tabsOn && <PreviewCard data={data} selection={selection} onChange={setSelection} />}
+        {tabsOn && <PreviewCard
+            data={data}
+            selection={selection}
+            onChange={changeSelection}
+            onlyUrls={onlyUrls}
+            onSelectOnly={selectOnly}
+            onClearOnly={clearOnly}
+          />}
 
         {(hasTabs || (hasBookmarks && bookmarksSupported)) && (
           <FieldSet id="import-options">
@@ -242,7 +298,25 @@ export function ImportReview(props: Props) {
         )}
 
         {tabsOn && (
-          <SettingsSection id="tab-options" title={t('importTabOptionsLabel')} summary={loadModeLabel}>
+          <SettingsSection id="tab-options" title={t('importTabOptionsLabel')} summary={tabOptionsSummary}>
+            <FieldSet id="im-target-set">
+              <FieldLegend variant="label">{t('importOpenInLabel')}</FieldLegend>
+              <RadioGroup
+                id="im-target"
+                value={settings.target}
+                onValueChange={(value) => patch({ target: value as RestoreSettings['target'] })}
+                aria-label={t('importOpenInLabel')}
+              >
+                {TARGETS.map(([value, labelKey]) => (
+                  <Field key={value} orientation="horizontal">
+                    <RadioGroupItem value={value} id={`im-target-${value}`} />
+                    <FieldLabel htmlFor={`im-target-${value}`} className="font-normal">
+                      {t(labelKey)}
+                    </FieldLabel>
+                  </Field>
+                ))}
+              </RadioGroup>
+            </FieldSet>
             <Field>
               <FieldLabel htmlFor="im-restore-mode">{t('importLoadingLabel')}</FieldLabel>
               <Select value={settings.restoreMode} onValueChange={(value) => patch({ restoreMode: value as RestoreMode })}>
@@ -265,9 +339,28 @@ export function ImportReview(props: Props) {
             <SwitchRow
               id="im-restore-layout"
               label={t('importRestoreLayout')}
-              checked={settings.restoreLayout}
+              description={currentWindow ? t('importLayoutNewOnly') : undefined}
+              checked={settings.restoreLayout && !currentWindow}
+              disabled={currentWindow}
               onChange={(value) => patch({ restoreLayout: value })}
             />
+            {tabGroupsSupported && (
+              <SwitchRow
+                id="im-merge-groups"
+                label={t('importMergeGroups')}
+                description={t('importMergeGroupsHint')}
+                checked={settings.mergeGroups}
+                onChange={(value) => patch({ mergeGroups: value })}
+              />
+            )}
+            {showContainers && (
+              <SwitchRow
+                id="im-containers"
+                label={t('importContainers')}
+                checked={settings.restoreContainers}
+                onChange={(value) => patch({ restoreContainers: value })}
+              />
+            )}
             {noTabGroups && (
               <Alert id="im-no-groups-hint">
                 <InfoIcon />

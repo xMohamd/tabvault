@@ -1267,7 +1267,7 @@
   },
   "importChooseAnother": {
     "message": "Choose another file",
-    "description": "Small button in the Import summary that opens the file picker to load a different backup."
+    "description": "Button that leaves the unlock step and returns to file selection."
   },
   "importDropHere": {
     "message": "Drop the file to load it",
@@ -1364,5 +1364,429 @@
   "commandSaveWindow": {
     "message": "Save the current window as a snapshot",
     "description": "Keyboard shortcut description: quick-save the focused window."
+  },
+  "reasonQuick": {
+    "message": "Quick save",
+    "description": "Badge: snapshot made from the right-click menu or keyboard shortcut."
+  },
+  "autoSaveFiles": {
+    "message": "Also save each backup as a file",
+    "description": "Switch: automatic backups are also written to Downloads."
+  },
+  "autoSaveFilesHint": {
+    "message": "In Downloads/TabVault. Keeps the newest $N$ files, like snapshots.",
+    "description": "Help text under the save-to-files switch.",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "n"
+      }
+    }
+  },
+  "snapshotFileSaved": {
+    "message": "Also saved as a file: $FILE$",
+    "description": "Tooltip of the file icon on a snapshot that was also saved as a file.",
+    "placeholders": {
+      "file": {
+        "content": "$1",
+        "example": "file"
+      }
+    }
+  },
+  "lastRunFileWarning": {
+    "message": "Last backup $DATE$ was kept. $DETAIL$",
+    "description": "Warning: automatic backup succeeded but the file was not written.",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "date"
+      },
+      "detail": {
+        "content": "$2",
+        "example": "detail"
+      }
+    }
+  },
+  "compareStart": {
+    "message": "Compare…",
+    "description": "Button turning on snapshot selection for comparing."
+  },
+  "compareCancel": {
+    "message": "Cancel",
+    "description": "Button leaving compare selection mode."
+  },
+  "compareRun": {
+    "message": "Compare selected",
+    "description": "Button comparing the two selected snapshots."
+  },
+  "compareHint": {
+    "message": "Select two snapshots to compare.",
+    "description": "Hint shown in compare selection mode."
+  },
+  "compareSelectLabel": {
+    "message": "Select the snapshot from $DATE$ to compare",
+    "description": "Accessible name of a snapshot row checkbox in compare mode.",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "date"
+      }
+    }
+  },
+  "compareTitle": {
+    "message": "$FROM$ → $TO$",
+    "description": "Header of the comparison: older date to newer date.",
+    "placeholders": {
+      "from": {
+        "content": "$1",
+        "example": "from"
+      },
+      "to": {
+        "content": "$2",
+        "example": "to"
+      }
+    }
+  },
+  "compareBack": {
+    "message": "Back",
+    "description": "Button leaving the comparison."
+  },
+  "compareNone": {
+    "message": "No differences",
+    "description": "Shown when two snapshots hold the same tabs, groups and bookmarks."
+  },
+  "compareLoadFailed": {
+    "message": "Couldn't load the snapshots to compare: $DETAIL$",
+    "description": "Error when a snapshot to compare cannot be loaded.",
+    "placeholders": {
+      "detail": {
+        "content": "$1",
+        "example": "detail"
+      }
+    }
+  },
+  "compareChipTabsAdded": {
+    "message": "+$N$ tabs",
+    "description": "Summary chip: tabs added.",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "n"
+      }
+    }
+  },
+  "compareChipTabsRemoved": {
+    "message": "−$N$ tabs",
+    "description": "Summary chip: tabs removed.",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "n"
+      }
+    }
+  },
+  "compareChipGroups": {
+    "message": "Groups +$ADDED$ −$REMOVED$",
+    "description": "Summary chip: groups added and removed.",
+    "placeholders": {
+      "added": {
+        "content": "$1",
+        "example": "added"
+      },
+      "removed": {
+        "content": "$2",
+        "example": "removed"
+      }
+    }
+  },
+  "compareChipBookmarks": {
+    "message": "Bookmarks +$ADDED$ −$REMOVED$",
+    "description": "Summary chip: bookmarks added and removed.",
+    "placeholders": {
+      "added": {
+        "content": "$1",
+        "example": "added"
+      },
+      "removed": {
+        "content": "$2",
+        "example": "removed"
+      }
+    }
+  },
+  "compareAddedTabs": {
+    "message": "Added tabs ($N$)",
+    "description": "Heading of the list of added tabs.",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "n"
+      }
+    }
+  },
+  "compareRemovedTabs": {
+    "message": "Removed tabs ($N$)",
+    "description": "Heading of the list of removed tabs.",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "n"
+      }
+    }
+  },
+  "compareAddedGroups": {
+    "message": "Added groups ($N$)",
+    "description": "Heading of the list of added tab groups.",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "n"
+      }
+    }
+  },
+  "compareRemovedGroups": {
+    "message": "Removed groups ($N$)",
+    "description": "Heading of the list of removed tab groups.",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "n"
+      }
+    }
+  },
+  "compareAddedBookmarks": {
+    "message": "Added bookmarks ($N$)",
+    "description": "Heading of the list of added bookmarks.",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "n"
+      }
+    }
+  },
+  "compareRemovedBookmarks": {
+    "message": "Removed bookmarks ($N$)",
+    "description": "Heading of the list of removed bookmarks.",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "n"
+      }
+    }
+  },
+  "compareUnchangedTabs": {
+    "message": "$N$ tabs unchanged",
+    "description": "Note: number of tabs present in both snapshots.",
+    "placeholders": {
+      "n": {
+        "content": "$1",
+        "example": "n"
+      }
+    }
+  },
+  "exportEncryptLabel": {
+    "message": "Protect with a password",
+    "description": "Switch label on the Export tab: encrypt the backup file."
+  },
+  "exportEncryptDescription": {
+    "message": "Encrypts the file so it can only be opened with the password.",
+    "description": "Description under the encryption switch."
+  },
+  "exportPasswordLabel": {
+    "message": "Password",
+    "description": "Label of the password field when exporting."
+  },
+  "exportPasswordConfirmLabel": {
+    "message": "Confirm password",
+    "description": "Label of the repeat-password field when exporting."
+  },
+  "exportPasswordTooShort": {
+    "message": "Use at least $MIN$ characters.",
+    "description": "Validation error for a short password. $MIN$ is the minimum length.",
+    "placeholders": {
+      "MIN": {
+        "content": "$1"
+      }
+    }
+  },
+  "exportPasswordMismatch": {
+    "message": "The passwords do not match.",
+    "description": "Validation error when the two passwords differ."
+  },
+  "exportEncryptWarning": {
+    "message": "If you forget the password, the backup can't be opened. Snapshots kept in this browser are not encrypted.",
+    "description": "Warning shown when password protection is on."
+  },
+  "importEncryptedNotice": {
+    "message": "This backup is password-protected.",
+    "description": "Shown when the chosen file is an encrypted backup."
+  },
+  "importPasswordLabel": {
+    "message": "Password",
+    "description": "Label of the password field when unlocking a backup."
+  },
+  "importUnlockButton": {
+    "message": "Unlock",
+    "description": "Button that decrypts a password-protected backup."
+  },
+  "importUnlocking": {
+    "message": "Unlocking…",
+    "description": "Button text while the password is being checked."
+  },
+  "importWrongPassword": {
+    "message": "Wrong password",
+    "description": "Inline error when the unlock password is wrong."
+  },
+  "importUnlockFailed": {
+    "message": "Could not unlock the backup: $DETAIL$",
+    "description": "Error when an encrypted backup is damaged or unsupported. $DETAIL$ is the reason.",
+    "placeholders": {
+      "DETAIL": {
+        "content": "$1"
+      }
+    }
+  },
+  "quickMenuSaveWindow": {
+    "message": "Save this window as a snapshot",
+    "description": "Right-click menu item: saves the current window to Backups."
+  },
+  "quickMenuSaveGroup": {
+    "message": "Save this tab group as a snapshot",
+    "description": "Right-click menu item: saves the tab group of the current tab to Backups."
+  },
+  "quickWindowTitle": {
+    "message": "Window: $TITLE$",
+    "description": "Label of a quick-saved window snapshot. TITLE is the title of its active tab.",
+    "placeholders": {
+      "title": {
+        "content": "$1",
+        "example": "GitHub"
+      }
+    }
+  },
+  "quickWindowFallback": {
+    "message": "Window",
+    "description": "Label of a quick-saved window when its active tab has no title."
+  },
+  "quickBackupNowTitle": {
+    "message": "Full backup",
+    "description": "Label used in the toolbar tooltip after the Backup now shortcut."
+  },
+  "quickSavedTip": {
+    "message": "Saved to Backups: $TITLE$",
+    "description": "Toolbar tooltip shown briefly after a quick save succeeded.",
+    "placeholders": {
+      "title": {
+        "content": "$1",
+        "example": "Window: GitHub"
+      }
+    }
+  },
+  "quickSavedWindowInsteadTip": {
+    "message": "This tab is not in a group, so the whole window was saved: $TITLE$",
+    "description": "Toolbar tooltip when Save tab group was used on an ungrouped tab.",
+    "placeholders": {
+      "title": {
+        "content": "$1",
+        "example": "Window: GitHub"
+      }
+    }
+  },
+  "quickFailedTip": {
+    "message": "Could not save: $ERROR$",
+    "description": "Toolbar tooltip shown briefly after a quick save failed.",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "No window found"
+      }
+    }
+  },
+  "quickNoWindow": {
+    "message": "No browser window found.",
+    "description": "Error when a quick save finds no window to save."
+  },
+  "importOpenInLabel": {
+    "message": "Open in",
+    "description": "Legend of the choice between restoring into new windows or the current window."
+  },
+  "importTargetNew": {
+    "message": "New windows",
+    "description": "Radio: restore each backed-up window as a new browser window."
+  },
+  "importTargetCurrent": {
+    "message": "Current window",
+    "description": "Radio: add all restored tabs to the window that is already open."
+  },
+  "importLayoutNewOnly": {
+    "message": "Only applies when opening new windows.",
+    "description": "Hint under the window-layout switch when restoring into the current window."
+  },
+  "importMergeGroups": {
+    "message": "Add to groups with the same name",
+    "description": "Switch: reuse an existing tab group with the same title."
+  },
+  "importMergeGroupsHint": {
+    "message": "Instead of creating a second group with the same name in the window.",
+    "description": "Description of the merge groups switch."
+  },
+  "importContainers": {
+    "message": "Reopen tabs in their containers",
+    "description": "Switch (Firefox): restore each tab in its Firefox container."
+  },
+  "previewSearchPlaceholder": {
+    "message": "Search tabs by title or address",
+    "description": "Placeholder and accessible name of the search box above the backup preview."
+  },
+  "previewMatchCount_one": {
+    "message": "$COUNT$ matching tab",
+    "description": "Number of search results (singular).",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "1"
+      }
+    }
+  },
+  "previewMatchCount_other": {
+    "message": "$COUNT$ matching tabs",
+    "description": "Number of search results (plural).",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "previewNoMatches": {
+    "message": "No tabs match your search.",
+    "description": "Shown when the search finds nothing."
+  },
+  "previewSelectMatching": {
+    "message": "Select only matching",
+    "description": "Button: restore only the tabs found by the search."
+  },
+  "previewClearSearch": {
+    "message": "Clear",
+    "description": "Button: clear the search and the matching-only selection."
+  },
+  "previewRestoringMatching_one": {
+    "message": "Restoring $COUNT$ matching tab",
+    "description": "Line under the preview when only searched tabs are selected (singular).",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "1"
+      }
+    }
+  },
+  "previewRestoringMatching_other": {
+    "message": "Restoring $COUNT$ matching tabs",
+    "description": "Line under the preview when only searched tabs are selected (plural).",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
   }
 }
