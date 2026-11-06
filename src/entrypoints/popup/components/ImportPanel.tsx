@@ -95,8 +95,10 @@ function UnlockStep({
           onChange={(event) => setPassword(event.target.value)}
           autoComplete="current-password"
           autoFocus
-          disabled={busy}
+          // readOnly (not disabled) while unlocking, so focus stays on the field and a failed attempt lands back on it.
+          readOnly={busy}
           aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'import-password-error' : undefined}
         />
         {error && <FieldError id="import-password-error">{error}</FieldError>}
       </Field>

@@ -236,6 +236,7 @@ export function ExportPanel({ setStatus }: { setStatus: SetStatus }) {
                   onChange={(event) => setPassword(event.target.value)}
                   autoComplete="new-password"
                   aria-invalid={passwordTooShort}
+                  aria-describedby={passwordTooShort ? 'ex-password-error' : undefined}
                 />
                 {passwordTooShort && <FieldError id="ex-password-error">{t('exportPasswordTooShort', MIN_PASSWORD_LENGTH)}</FieldError>}
               </Field>
@@ -248,6 +249,7 @@ export function ExportPanel({ setStatus }: { setStatus: SetStatus }) {
                   onChange={(event) => setConfirm(event.target.value)}
                   autoComplete="new-password"
                   aria-invalid={passwordMismatch}
+                  aria-describedby={passwordMismatch ? 'ex-password-confirm-error' : undefined}
                 />
                 {passwordMismatch && <FieldError id="ex-password-confirm-error">{t('exportPasswordMismatch')}</FieldError>}
               </Field>

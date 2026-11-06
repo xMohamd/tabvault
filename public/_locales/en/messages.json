@@ -1788,5 +1788,9 @@
         "example": "12"
       }
     }
+  },
+  "previewResultsLabel": {
+    "message": "Matching tabs",
+    "description": "Accessible name of the scrollable list of tabs that match the search."
   }
 }

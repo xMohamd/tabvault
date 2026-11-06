@@ -122,7 +122,13 @@ interface Props {
 function SearchResults({ matches }: { matches: BackupTab[] }) {
   return (
     <ScrollArea className="rounded-md border bg-background [&>[data-slot=scroll-area-viewport]]:max-h-52">
-      <ul id="preview-results" className="flex flex-col px-2.5 py-1">
+      {/* Focusable so the scrollable list can be scrolled with the keyboard. */}
+      <ul
+        id="preview-results"
+        tabIndex={0}
+        aria-label={t('previewResultsLabel')}
+        className="flex flex-col rounded-md px-2.5 py-1 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      >
         {matches.map((tab, i) => (
           <li key={i} className="flex min-w-0 flex-col py-1">
             <span className="truncate text-sm">{tab.title || tab.url}</span>
