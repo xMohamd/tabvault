@@ -45,6 +45,12 @@ export interface TabImportOptions {
   skipOpenTabs?: boolean;
   skipBlankTabs?: boolean;
   focusRestored?: boolean;
+  /** 'current-window': append everything to the last-focused normal window. Default 'new-windows'. */
+  target?: 'new-windows' | 'current-window';
+  /** Add tabs to an existing same-titled group in the target window instead of creating one. */
+  mergeGroups?: boolean;
+  /** Firefox: reopen tabs in their containers. Default true. */
+  restoreContainers?: boolean;
   isCancelled?: () => boolean;
   onProgress?: (done: number, message: string) => void;
   onFailure?: (failure: Failure) => void;
@@ -52,7 +58,11 @@ export interface TabImportOptions {
 
 export interface TabImportStats {
   tabs: number;
+  /** Groups created plus groups merged into (see groupsMerged). */
   groups: number;
+  /** Of `groups`, how many were existing groups that tabs were added to. */
+  groupsMerged: number;
+  /** Windows created; always 0 for the 'current-window' target. */
   windows: number;
   skipped: number;
   failed: number;
@@ -60,7 +70,26 @@ export interface TabImportStats {
 }
 
 /** Firefox-only create properties are missing from Chrome's typings. */
-type CreateProps = Browser.tabs.CreateProperties & { discarded?: boolean; title?: string };
+type CreateProps = Browser.tabs.CreateProperties & { discarded?: boolean; title?: string; cookieStoreId?: string };
+
+/** Firefox's contextualIdentities API (absent from Chrome's typings). */
+interface ContainerIdentity {
+  cookieStoreId: string;
+  name: string;
+}
+interface ContainerApi {
+  query: (details: { name?: string }) => Promise<ContainerIdentity[]>;
+  create: (details: { name: string; color: string; icon: string }) => Promise<ContainerIdentity>;
+}
+
+const CONTAINER_COLORS: ReadonlySet<string> = new Set([
+  'blue', 'turquoise', 'green', 'yellow', 'orange', 'red', 'pink', 'purple', 'toolbar',
+]);
+const CONTAINER_ICONS: ReadonlySet<string> = new Set([
+  'fingerprint', 'briefcase', 'dollar', 'cart', 'circle', 'gift', 'vacation', 'food', 'fruit', 'pet', 'tree',
+  'chill', 'fence',
+]);
+export const CONTAINER_UNAVAILABLE = 'container-unavailable';
 
 interface PlanEntry extends OrderedEntry {
   ref: { id: number } | null;
@@ -79,6 +108,10 @@ interface Context {
   mode: RestoreMode;
   stats: TabImportStats;
   done: number;
+  /** Set for the 'current-window' target: the window every plan is restored into. */
+  currentWindowId?: number;
+  /** Container name -> cookieStoreId (undefined = could not be resolved); null when unsupported/disabled. */
+  containers: { api: ContainerApi; cache: Map<string, Promise<string | undefined>> } | null;
 }
 
 type WindowLayout = Partial<Pick<Browser.windows.CreateData, 'state' | 'width' | 'height' | 'left' | 'top'>>;
@@ -133,6 +166,8 @@ export class TabAdapter {
     const ctx = this.createContext(opts);
     logger.info('IMPORT_WINDOWS_START', { windowCount: windows.length, mode: ctx.mode });
 
+    if (ctx.opts.target === 'current-window') ctx.currentWindowId = await this.findCurrentWindow();
+
     const seen = ctx.opts.skipOpenTabs ? await this.collectOpenUrlKeys() : new Set<string>();
     const plans = this.planWindows(windows, ctx, seen);
     ctx.done = ctx.stats.skipped + ctx.stats.failed;
@@ -161,8 +196,28 @@ export class TabAdapter {
 
   // ---- setup ----------------------------------------------------------
 
+  /** The last-focused normal window, or undefined (callers then fall back to new windows). */
+  private async findCurrentWindow(): Promise<number | undefined> {
+    try {
+      const win = await browser.windows.getLastFocused({ windowTypes: ['normal'] });
+      if (win?.id !== undefined && (!win.type || win.type === 'normal')) return win.id;
+    } catch (e) {
+      logger.warn('CURRENT_WINDOW_LOOKUP_FAIL', {}, e);
+    }
+    return undefined;
+  }
+
+  private containerApi(opts: TabImportOptions): ContainerApi | null {
+    if (opts.restoreContainers === false || this.family !== 'gecko') return null;
+    // Firefox-only API, absent from Chrome's typings.
+    const api = (browser as unknown as { contextualIdentities?: ContainerApi }).contextualIdentities;
+    return typeof api?.query === 'function' && typeof api.create === 'function' ? api : null;
+  }
+
   private createContext(opts: TabImportOptions): Context {
+    const api = this.containerApi(opts);
     return {
+      containers: api ? { api, cache: new Map() } : null,
       opts: {
         restoreWindowLayout: true,
         skipOpenTabs: false,
@@ -171,7 +226,7 @@ export class TabAdapter {
         ...opts,
       },
       mode: opts.restoreMode && RESTORE_MODES.has(opts.restoreMode) ? opts.restoreMode : DEFAULT_MODE,
-      stats: { tabs: 0, groups: 0, windows: 0, skipped: 0, failed: 0, cancelled: false },
+      stats: { tabs: 0, groups: 0, groupsMerged: 0, windows: 0, skipped: 0, failed: 0, cancelled: false },
       done: 0,
     };
   }
@@ -242,6 +297,7 @@ export class TabAdapter {
   /** @returns id of the created window, or null */
   private async restoreWindow(plan: WindowPlan, index: number, total: number, ctx: Context): Promise<number | null> {
     const message = MESSAGES.window(index + 1, total);
+    if (ctx.currentWindowId !== undefined) return this.restoreIntoCurrentWindow(plan, ctx.currentWindowId, ctx, message);
     const created = await this.createWindow(plan, ctx);
     if (!created) {
       this.failWindowTabs(plan, ctx, message);
@@ -261,6 +317,32 @@ export class TabAdapter {
     ctx.stats.windows++;
     if (plan.isGroupWindow) ctx.stats.groups++;
     return windowId;
+  }
+
+  /**
+   * Appends the plan's tabs to an existing window. Creates no window, leaves no default tab to
+   * clean up and never changes the active tab or window focus.
+   * @returns always null: no window was created or needs focusing
+   */
+  private async restoreIntoCurrentWindow(
+    plan: WindowPlan,
+    windowId: number,
+    ctx: Context,
+    message: string,
+  ): Promise<null> {
+    const baseIndex = await this.countWindowTabs(windowId);
+    await this.createTabs(plan, windowId, ctx, message, baseIndex);
+    await this.finishWindow(plan, windowId, ctx);
+    return null;
+  }
+
+  private async countWindowTabs(windowId: number): Promise<number | undefined> {
+    try {
+      return (await browser.tabs.query({ windowId })).length;
+    } catch (e) {
+      logger.warn('COUNT_WINDOW_TABS_FAIL', { windowId }, e);
+      return undefined; // no explicit index: the browser appends
+    }
   }
 
   private failWindowTabs(plan: WindowPlan, ctx: Context, message: string): void {
@@ -323,8 +405,16 @@ export class TabAdapter {
    * Creates tabs one by one in order. Discard waits run concurrently in a small pool.
    * @returns number of tabs created
    */
-  private async createTabs(plan: WindowPlan, windowId: number, ctx: Context, message: string): Promise<number> {
-    const activeEntry = plan.entries.find((e) => e.tab.active) ?? plan.entries[0];
+  private async createTabs(
+    plan: WindowPlan,
+    windowId: number,
+    ctx: Context,
+    message: string,
+    baseIndex: number | undefined = 0,
+  ): Promise<number> {
+    // Into an existing window nothing is activated: every restored tab is a background tab.
+    const intoCurrent = ctx.currentWindowId !== undefined;
+    const activeEntry = intoCurrent ? undefined : (plan.entries.find((e) => e.tab.active) ?? plan.entries[0]);
     const pending = new Set<Promise<void>>();
     let count = 0;
 
@@ -335,7 +425,8 @@ export class TabAdapter {
       }
       const defer = entry !== activeEntry;
       try {
-        const tab = await this.createTab(entry.tab, windowId, count, ctx.mode, defer);
+        const index = baseIndex === undefined ? undefined : baseIndex + count;
+        const tab = await this.createTab(entry.tab, windowId, index, ctx, defer);
         if (tab.id === undefined) throw new Error('create-failed');
         entry.ref = { id: tab.id };
         count++;
@@ -373,14 +464,16 @@ export class TabAdapter {
     return !!this.features.discard;
   }
 
-  private createTab(
+  private async createTab(
     tab: BackupTab,
     windowId: number,
-    index: number,
-    mode: RestoreMode,
+    index: number | undefined,
+    ctx: Context,
     defer: boolean,
   ): Promise<Browser.tabs.Tab> {
-    const props: CreateProps = { windowId, index, url: tab.url, active: false, pinned: tab.pinned === true };
+    const mode = ctx.mode;
+    const props: CreateProps = { windowId, url: tab.url, active: false, pinned: tab.pinned === true };
+    if (index !== undefined) props.index = index;
     if (mode === 'lazy' && defer && this.isLazyUrl(tab.url)) {
       props.url = this.lazyUrl(tab);
     } else if (mode !== 'load' && defer && this.features.discardOnCreate && !props.pinned) {
@@ -388,9 +481,58 @@ export class TabAdapter {
       props.discarded = true;
       if (tab.title) props.title = tab.title;
     }
-    // `discarded` and `title` are Firefox-only and absent from Chrome's types; the browser
-    // ignores or accepts them as appropriate, so a single cast at the call is enough.
-    return browser.tabs.create(props as Browser.tabs.CreateProperties);
+    // `discarded`, `title` and `cookieStoreId` are Firefox-only and absent from Chrome's types; the
+    // browser ignores or accepts them as appropriate, so a single cast at the call is enough.
+    const create = (p: CreateProps) => browser.tabs.create(p as Browser.tabs.CreateProperties);
+
+    if (!tab.container || !ctx.containers) return create(props);
+    const cookieStoreId = await this.resolveContainer(tab.container, ctx.containers);
+    if (cookieStoreId === undefined) {
+      this.reportContainerUnavailable(tab, ctx);
+      return create(props);
+    }
+    try {
+      return await create({ ...props, cookieStoreId });
+    } catch (e) {
+      // Retry without the container: the tab opening matters more than where it lives.
+      logger.warn('TAB_CREATE_CONTAINER_FAIL', { url: tab.url }, e);
+      this.reportContainerUnavailable(tab, ctx);
+      return create(props);
+    }
+  }
+
+  private reportContainerUnavailable(tab: BackupTab, ctx: Context): void {
+    ctx.opts.onFailure?.({ kind: 'tab', url: tab.url, title: tab.title, reason: CONTAINER_UNAVAILABLE });
+  }
+
+  /** Name -> cookieStoreId: reuses an existing container, creates a missing one. Cached per name. */
+  private resolveContainer(
+    container: NonNullable<BackupTab['container']>,
+    ctx: NonNullable<Context['containers']>,
+  ): Promise<string | undefined> {
+    let pending = ctx.cache.get(container.name);
+    if (!pending) {
+      pending = this.loadContainer(container, ctx.api).catch((e: unknown) => {
+        logger.warn('CONTAINER_RESOLVE_FAIL', { name: container.name }, e);
+        return undefined;
+      });
+      ctx.cache.set(container.name, pending);
+    }
+    return pending;
+  }
+
+  private async loadContainer(
+    { name, color, icon }: NonNullable<BackupTab['container']>,
+    api: ContainerApi,
+  ): Promise<string | undefined> {
+    const existing = (await api.query({ name })).find((i) => i.name === name);
+    if (existing) return existing.cookieStoreId;
+    const created = await api.create({
+      name,
+      color: color && CONTAINER_COLORS.has(color) ? color : 'blue',
+      icon: icon && CONTAINER_ICONS.has(icon) ? icon : 'fingerprint',
+    });
+    return created?.cookieStoreId;
   }
 
   private lazyUrl(tab: BackupTab): string {
@@ -431,12 +573,15 @@ export class TabAdapter {
     const first = created[0];
     if (!first) return;
 
+    // In an existing window the user's active tab stays; restored tabs are all background tabs.
     const active =
-      created.find((e) => e === plan.activeEntry) ?? first;
-    try {
-      await browser.tabs.update(active.ref.id, { active: true });
-    } catch (e) {
-      logger.warn('TAB_ACTIVATE_FAIL', { tabId: active.ref.id }, e);
+      ctx.currentWindowId !== undefined ? undefined : (created.find((e) => e === plan.activeEntry) ?? first);
+    if (active) {
+      try {
+        await browser.tabs.update(active.ref.id, { active: true });
+      } catch (e) {
+        logger.warn('TAB_ACTIVATE_FAIL', { tabId: active.ref.id }, e);
+      }
     }
     if (!plan.isGroupWindow && this.features.tabGroups) {
       await this.groupTabs(plan, created, active, windowId, ctx);
@@ -446,7 +591,7 @@ export class TabAdapter {
   private async groupTabs(
     plan: WindowPlan,
     created: Array<PlanEntry & { ref: { id: number } }>,
-    active: PlanEntry,
+    active: PlanEntry | undefined,
     windowId: number,
     ctx: Context,
   ): Promise<void> {
@@ -460,13 +605,32 @@ export class TabAdapter {
         const [firstId, ...restIds] = members.map((e) => e.ref.id);
         if (firstId === undefined) continue;
         const tabIds: [number, ...number[]] = [firstId, ...restIds];
-        const groupId = await browser.tabs.group({ tabIds, createProperties: { windowId } });
-        await this.styleGroup(groupId, group, members.includes(active as (typeof members)[number]));
+        const existingId = ctx.opts.mergeGroups ? await this.findGroupByTitle(windowId, group.title) : undefined;
+        if (existingId !== undefined) {
+          // Join the existing group as is: its color and collapsed state are the user's.
+          await browser.tabs.group({ tabIds, groupId: existingId });
+          ctx.stats.groupsMerged++;
+        } else {
+          const groupId = await browser.tabs.group({ tabIds, createProperties: { windowId } });
+          await this.styleGroup(groupId, group, !!active && members.includes(active as (typeof members)[number]));
+        }
         ctx.stats.groups++;
       } catch (e) {
         logger.warn('GROUP_CREATE_FAIL', { title: group.title }, e);
         ctx.opts.onFailure?.({ kind: 'group', title: group.title, reason: errorMessage(e) || 'group-failed' });
       }
+    }
+  }
+
+  /** Id of an existing group in the window with exactly this (non-empty) title, if any. */
+  private async findGroupByTitle(windowId: number, title: string): Promise<number | undefined> {
+    if (!title) return undefined;
+    try {
+      const matches = await browser.tabGroups.query({ windowId, title });
+      return matches.find((g) => g.title === title)?.id;
+    } catch (e) {
+      logger.warn('GROUP_QUERY_FAIL', { windowId }, e);
+      return undefined;
     }
   }
 

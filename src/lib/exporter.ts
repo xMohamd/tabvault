@@ -58,8 +58,18 @@ type OptionalApis = {
 
 type ExportedBookmark = Record<string, unknown> & { children?: ExportedBookmark[] };
 
+/** Firefox-only tab field. */
+type FirefoxTab = Browser.tabs.Tab & { cookieStoreId?: string };
+type ContainerInfo = { name: string; color?: string; icon?: string };
+type ContainerApi = { get: (cookieStoreId: string) => Promise<ContainerInfo | undefined> };
+
+const DEFAULT_COOKIE_STORE = 'firefox-default';
+const PRIVATE_COOKIE_STORE = 'firefox-private';
+
 export class UniversalExporter {
   private browserInfo: BrowserInfo | null;
+  /** cookieStoreId -> container, filled per export run (Firefox only). */
+  private containers = new Map<string, ContainerInfo>();
 
   constructor({ browser }: { browser?: BrowserInfo } = {}) {
     this.browserInfo = browser ?? null;
@@ -140,15 +150,53 @@ export class UniversalExporter {
     const windows = await ext.windows.getAll({ populate: true, windowTypes: ['normal'] });
     const groupMap = await this.getGroupMap(info);
     const result: BackupWindow[] = [];
+    const { windowId, groupId } = options.scope ?? {};
 
+    const candidates: Browser.windows.Window[] = [];
     for (const win of windows || []) {
       if (!win || (win.type && win.type !== 'normal')) continue;
       if (win.incognito && !options.includeIncognito) continue;
+      if (windowId !== undefined && win.id !== windowId) continue;
+      candidates.push(win);
+    }
+    await this.resolveContainers(info, candidates);
 
-      const windowData = this.buildWindow(win, groupMap, options, filters, skipped);
+    for (const win of candidates) {
+      // A group scope keeps only that group's tabs; an unknown group leaves nothing, so no window.
+      const scoped =
+        groupId === undefined ? win : { ...win, tabs: (win.tabs || []).filter((t) => t?.groupId === groupId) };
+      const windowData = this.buildWindow(scoped, groupMap, options, filters, skipped);
       if (windowData) result.push(windowData);
     }
     return result;
+  }
+
+  /**
+   * Firefox: looks up the container (contextual identity) of every tab that is not in the default
+   * or a private store, once per id. Failures leave the id unresolved (the tab exports without one).
+   */
+  private async resolveContainers(info: BrowserInfo, windows: Browser.windows.Window[]): Promise<void> {
+    this.containers = new Map();
+    // `contextualIdentities` and `cookieStoreId` are Firefox-only and absent from Chrome's typings.
+    const api = (ext as unknown as { contextualIdentities?: ContainerApi }).contextualIdentities;
+    if (info.family !== 'gecko' || !api?.get) return;
+    const ids = new Set<string>();
+    for (const win of windows) {
+      for (const tab of win.tabs || []) {
+        const id = (tab as FirefoxTab | undefined)?.cookieStoreId;
+        if (id && id !== DEFAULT_COOKIE_STORE && !id.startsWith(PRIVATE_COOKIE_STORE)) ids.add(id);
+      }
+    }
+    for (const id of ids) {
+      try {
+        const identity = await api.get(id);
+        if (identity?.name) {
+          this.containers.set(id, { name: identity.name, color: identity.color, icon: identity.icon });
+        }
+      } catch (e) {
+        logger.warn('EXPORT_CONTAINER_FAILED', { id }, e);
+      }
+    }
   }
 
   /** groupId -> tab group */
@@ -283,6 +331,9 @@ export class UniversalExporter {
       pinned: !!tab.pinned,
     };
     if (tab.active) tabData.active = true;
+
+    const container = this.containers.get((tab as FirefoxTab).cookieStoreId ?? '');
+    if (container) tabData.container = { ...container };
 
     const favicon = this.favicon(tab, options);
     if (favicon) tabData.favIconUrl = favicon;

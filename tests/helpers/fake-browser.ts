@@ -42,7 +42,7 @@ export function createFakeBrowser({
 
     let nextId = 100;
     const id = () => nextId++;
-    const listeners = { onUpdated: [], onMessage: [], onAlarm: [], onInstalled: [], onStartup: [] };
+    const listeners = { onUpdated: [], onMessage: [], onAlarm: [], onInstalled: [], onStartup: [], onMenuClicked: [], onCommand: [] };
     const event = (key) => ({
         addListener: (f) => { listeners[key].push(f); },
         removeListener: (f) => { listeners[key] = listeners[key].filter((x) => x !== f); },
@@ -56,7 +56,16 @@ export function createFakeBrowser({
     const store = { local: {}, session: {} };
     const alarms = new Map();
     const downloads = [];
-    const calls = { tabsGroup: [], tabsCreate: [], windowsCreate: [] };
+    const calls = { tabsGroup: [], tabsCreate: [], windowsCreate: [], identitiesCreate: [] };
+    const menus = []; // contextMenus.create calls, in order
+    const badge = { text: '', color: '', title: '', history: [] }; // action badge state
+    const identities = new Map(); // cookieStoreId -> { cookieStoreId, name, color, icon } (gecko only)
+    function seedContainer({ name, color = 'blue', icon = 'fingerprint' }) {
+        const cookieStoreId = `firefox-container-${identities.size + 1}`;
+        const identity = { cookieStoreId, name, color, icon, colorCode: '#000', iconUrl: '' };
+        identities.set(cookieStoreId, identity);
+        return identity;
+    }
 
     // ---- windows & tabs ----
     const reindex = (w) => w.tabIds.forEach((tid, i) => { tabs.get(tid).index = i; });
@@ -71,6 +80,7 @@ export function createFakeBrowser({
             id: tid, windowId, url: '', pendingUrl: url, title: props.title ?? '',
             pinned: !!props.pinned, active: !!props.active, groupId: -1,
             discarded: !!props.discarded, incognito: w.incognito, index: 0, status: 'loading',
+            ...(gecko ? { cookieStoreId: props.cookieStoreId ?? 'firefox-default' } : {}),
         };
         tabs.set(tid, t);
         const idx = props.index ?? w.tabIds.length;
@@ -215,12 +225,21 @@ export function createFakeBrowser({
                 Object.assign(w, p);
                 return { ...w, tabIds: undefined };
             },
+            getLastFocused: async (info = {}) => {
+                const list = [...windows.values()].filter((w) => !info.windowTypes || info.windowTypes.includes(w.type));
+                if (list.length === 0) throw new Error('No matching window.');
+                const w = list.find((x) => x.focused) ?? list[list.length - 1];
+                return info.populate ? snapshotWin(w) : { ...w, tabIds: undefined };
+            },
         },
         tabs: {
             create: async (o = {}) => {
                 calls.tabsCreate.push(clone(o));
-                const allowed = ['windowId', 'url', 'pinned', 'active', 'index', ...(gecko ? ['discarded', 'title'] : [])];
+                const allowed = ['windowId', 'url', 'pinned', 'active', 'index', ...(gecko ? ['discarded', 'title', 'cookieStoreId'] : [])];
                 noExtra(o, allowed, 'tabs.create');
+                if (o.cookieStoreId && o.cookieStoreId !== 'firefox-default' && !identities.has(o.cookieStoreId)) {
+                    throw new Error(`No cookie store exists with ID ${o.cookieStoreId}.`);
+                }
                 if (/^javascript:/i.test(o.url ?? '')) throw new Error('Cannot create a tab with a javascript: URL.');
                 const t = addTab(o.windowId ?? [...windows.keys()][0], o);
                 if (o.discarded) finishLoad(t);
@@ -279,20 +298,46 @@ export function createFakeBrowser({
             removeTree: async (bid) => removeBm(bid, true),
         },
         tabGroups: {
-            query: async () => [...groups.values()].map((g) => ({ ...g })),
+            query: async (q = {}) => [...groups.values()]
+                .filter((g) => (q.windowId === undefined || g.windowId === q.windowId)
+                    && (q.title === undefined || g.title === q.title)
+                    && (q.color === undefined || g.color === q.color)
+                    && (q.collapsed === undefined || g.collapsed === q.collapsed))
+                .map((g) => ({ ...g })),
             update: async (gid, p) => {
                 if (!groups.has(gid)) throw new Error(`No group with id: ${gid}.`);
                 Object.assign(groups.get(gid), p);
                 return { ...groups.get(gid) };
             },
         },
-        downloads: { download: async (o) => { downloads.push(o); return downloads.length; } },
+        downloads: {
+            download: async (o) => { downloads.push(o); return downloads.length; },
+            removeFile: async (did) => { calls.downloadsRemoveFile = calls.downloadsRemoveFile ?? []; calls.downloadsRemoveFile.push(did); },
+            erase: async (q) => { calls.downloadsErase = calls.downloadsErase ?? []; calls.downloadsErase.push(clone(q)); return [q?.id]; },
+        },
         storage: { local: area('local'), session: area('session') },
         alarms: {
             get: async (n) => alarms.get(n),
             create: async (n, o) => { alarms.set(n, { name: n, ...o }); },
             clear: async (n) => alarms.delete(n),
             onAlarm: event('onAlarm'),
+        },
+        contextMenus: {
+            removeAll: async () => { menus.length = 0; },
+            create: (o) => {
+                if (!o.id) throw new Error('id required');
+                if (menus.some((m) => m.id === o.id)) throw new Error(`Cannot create item with duplicate id ${o.id}`);
+                if (gecko ? false : (o.contexts ?? []).includes('tab')) throw new Error("Invalid value for contexts: 'tab'");
+                menus.push(clone(o));
+                return o.id;
+            },
+            onClicked: event('onMenuClicked'),
+        },
+        commands: { onCommand: event('onCommand') },
+        action: {
+            setBadgeText: async (o) => { badge.text = o.text; badge.history.push(`text:${o.text}`); },
+            setBadgeBackgroundColor: async (o) => { badge.color = o.color; },
+            setTitle: async (o) => { badge.title = o.title; },
         },
     };
 
@@ -320,15 +365,30 @@ export function createFakeBrowser({
         tabIds.forEach((tid) => { tabs.get(tid).groupId = gid; });
         return gid;
     };
+    if (gecko) {
+        api.contextualIdentities = {
+            query: async (q = {}) => [...identities.values()]
+                .filter((i) => q.name === undefined || i.name === q.name).map((i) => ({ ...i })),
+            get: async (cid) => {
+                if (!identities.has(cid)) throw new Error(`Invalid contextual identity: ${cid}`);
+                return { ...identities.get(cid) };
+            },
+            create: async (o) => {
+                calls.identitiesCreate.push(clone(o));
+                return { ...seedContainer(o) };
+            },
+        };
+    }
     if (!withTabGroups) { delete api.tabs.group; delete api.tabGroups; }
     if (!withBookmarks) delete api.bookmarks;
 
     function install() {
         // Replace namespaces on WXT's fake so modules importing `browser` see these fakes.
         const target = fakeBrowser as any;
-        for (const ns of ['runtime', 'windows', 'tabs', 'tabGroups', 'bookmarks', 'downloads', 'storage', 'alarms']) {
+        for (const ns of ['runtime', 'windows', 'tabs', 'tabGroups', 'bookmarks', 'downloads', 'storage', 'alarms', 'contextMenus', 'commands', 'action']) {
             target[ns] = (api as any)[ns];
         }
+        target.contextualIdentities = (api as any).contextualIdentities; // undefined on chromium
         (globalThis as any).chrome = api;
         (globalThis as any).browser = api;
         Object.defineProperty(globalThis, 'navigator', {
@@ -337,8 +397,9 @@ export function createFakeBrowser({
     }
 
     function reset() {
-        windows.clear(); tabs.clear(); groups.clear(); bookmarks.clear(); alarms.clear();
+        windows.clear(); tabs.clear(); groups.clear(); bookmarks.clear(); alarms.clear(); identities.clear();
         downloads.length = 0; store.local = {}; store.session = {};
+        menus.length = 0; Object.assign(badge, { text: '', color: '', title: '', history: [] });
         for (const k of Object.keys(calls)) calls[k].length = 0;
         for (const k of Object.keys(listeners)) listeners[k] = [];
         nextId = 100;
@@ -350,8 +411,8 @@ export function createFakeBrowser({
 
     return {
         chrome: api, family, userAgent: ua,
-        windows, tabs, groups, bookmarks, roots, storage: store, alarms, downloads, listeners, calls,
-        seedWindow, seedTab, seedGroup, seedBookmark, reset,
+        windows, tabs, groups, bookmarks, roots, storage: store, alarms, downloads, listeners, calls, identities, menus, badge,
+        seedWindow, seedTab, seedGroup, seedBookmark, seedContainer, reset,
         /** Convenience: ids of a window's tabs in order. */
         tabUrls: (wid) => windows.get(wid).tabIds.map((tid) => tabs.get(tid).url || tabs.get(tid).pendingUrl),
         /** Wait for pending tab-load timers. */
