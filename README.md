@@ -39,11 +39,22 @@ APIs at runtime, not guessed from the browser name.
   In the toolbar popup, choosing a file opens the Import page in a tab: browsers close a
   popup when a file dialog takes focus, which would lose the file. Dropping a file onto
   the popup works directly.
+- **Password-protected backups**: Export can encrypt the file (PBKDF2-SHA256, 600,000
+  rounds, AES-256-GCM); Import asks for the password. The password is never stored or
+  logged. Snapshots kept inside the browser are not encrypted.
+- **Restore options**: into new windows or the current window, add tabs to existing groups
+  with the same name, and on Firefox reopen tabs in their containers (created if missing).
+- **Search inside a backup** and restore only the matching tabs.
+- **Quick save**: right-click the toolbar icon or a page ("Save this window" / "Save this
+  tab group"), or use the shortcuts Alt+Shift+S (save window), Alt+Shift+B (back up now)
+  and Alt+Shift+M (open the popup). Change them at chrome://extensions/shortcuts.
+- **Compare two snapshots**: tabs, groups and bookmarks added or removed.
 - **Bookmarklets** (`javascript:` bookmarks) have their own option under Bookmarks on both
   Export and Import, on by default. The import summary says how many a file contains,
   since a bookmarklet runs code on the page you click it on. Restored tabs never open
   `javascript:` addresses.
-- **Backups**: automatic snapshots (hourly, daily or weekly, keeping the last N), plus
+- **Backups**: automatic snapshots (hourly, daily or weekly, keeping the last N), optionally
+  also written as files to Downloads/TabVault (so they survive removing the extension), plus
   "back up now", restore, download and delete. Stored only in this browser.
 - Restores run in the background, so closing the popup doesn't stop them.
 - Light and dark themes, keyboard accessible, localized via `_locales`.

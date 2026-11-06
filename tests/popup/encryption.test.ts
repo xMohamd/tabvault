@@ -113,6 +113,10 @@ describe('import of an encrypted file', () => {
     await user.type($('#import-password'), 'nope nope{Enter}');
     expect(await screen.findByText(t('importWrongPassword'))).toBeTruthy();
     expect($('#import-password').getAttribute('aria-invalid')).toBe('true');
+    // The error is linked to the field, and focus stays on it (readOnly, not disabled, while unlocking).
+    expect($('#import-password').getAttribute('aria-describedby')).toBe('import-password-error');
+    expect(document.activeElement).toBe($('#import-password'));
+    expect($<HTMLInputElement>('#import-password').disabled).toBe(false);
 
     await user.clear($('#import-password'));
     await user.type($('#import-password'), 'correct horse');

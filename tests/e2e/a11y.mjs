@@ -12,6 +12,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { webcrypto } from 'node:crypto';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const extDir = resolve(root, '.output', 'chrome-mv3');
@@ -194,6 +195,19 @@ const bigPath = join(work, 'big-backup.json');
 writeFileSync(smallPath, JSON.stringify(smallBackup));
 writeFileSync(bigPath, JSON.stringify(bigBackup));
 
+/** Builds a password-protected backup envelope (same format as src/lib/crypto.ts, with a low iteration count: the importer honours the file's). */
+async function encryptEnvelope(json, password, iterations = 1000) {
+    const b64 = (u8) => Buffer.from(u8).toString('base64');
+    const salt = webcrypto.getRandomValues(new Uint8Array(16)); const iv = webcrypto.getRandomValues(new Uint8Array(12));
+    const material = await webcrypto.subtle.importKey('raw', new TextEncoder().encode(password.normalize('NFKC')), 'PBKDF2', false, ['deriveKey']);
+    const key = await webcrypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations }, material, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+    const data = new Uint8Array(await webcrypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(json)));
+    return { format: 'tabvault-encrypted', version: 1, kdf: { name: 'PBKDF2', hash: 'SHA-256', iterations, salt: b64(salt) }, cipher: { name: 'AES-GCM', iv: b64(iv) }, data: b64(data) };
+}
+const BACKUP_PASSWORD = 'correct horse';
+const encryptedPath = join(work, 'small-backup.encrypted.json');
+writeFileSync(encryptedPath, JSON.stringify(await encryptEnvelope(JSON.stringify(smallBackup), BACKUP_PASSWORD)));
+
 // ---------------------------------------------------------------- results
 const rows = [];       // { state, theme, id, impact, nodes, help, sample }
 const incompletes = [];
@@ -232,6 +246,20 @@ async function popupStates(theme) {
     await p.click('#ex-tabs'); await p.click('#ex-bookmarks');
     await p.waitFor(`document.getElementById('export-empty-hint')`);
     await audit(p, 'Popup: Export, nothing selected', theme);
+    await p.click('#ex-tabs'); // back on, so the password states below have a live export button
+    await p.click('#ex-encrypt');
+    await p.waitFor(`document.getElementById('ex-password')`);
+    await audit(p, 'Popup: Export, password protection on (empty fields)', theme);
+    await p.type('#ex-password', 'abc');
+    await p.type('#ex-password-confirm', 'abd');
+    await p.waitFor(`document.getElementById('ex-password-error') && document.getElementById('ex-password-confirm-error')`);
+    await audit(p, 'Popup: Export, password too short + mismatch (errors)', theme);
+    check(`Export: password errors are aria-invalid, described and announced [${theme}]`, await p.eval(`return [['ex-password', 'ex-password-error'], ['ex-password-confirm', 'ex-password-confirm-error']].every(([i, e]) => { const el = document.getElementById(i); return el.getAttribute('aria-invalid') === 'true' && (el.getAttribute('aria-describedby') || '').split(' ').includes(e) && document.getElementById(e)?.getAttribute('role') === 'alert'; });`));
+    await p.type('#ex-password', BACKUP_PASSWORD);
+    await p.type('#ex-password-confirm', BACKUP_PASSWORD);
+    await p.waitFor(`!document.getElementById('ex-password-error') && !document.getElementById('ex-password-confirm-error')`);
+    await audit(p, 'Popup: Export, password valid', theme);
+    await p.click('#ex-encrypt'); // off again: the rest of the flow never exports
 
     await clickTab(p, 'import');
     // A finished restore from an earlier pass is still in the worker: the popup then opens on its results.
@@ -257,6 +285,9 @@ async function popupBackupStates(p, theme) {
     await audit(p, 'Popup: Backups with snapshots', theme);
     await openSection(p, 'backups-auto');
     await audit(p, 'Popup: Backups, Automatic backups expanded', theme);
+    await p.eval(`document.getElementById('bk-files').scrollIntoView({ block: 'center' });`);
+    check(`Backups: "also save each backup as a file" switch is visible [${theme}]`, await p.eval(`const e = document.getElementById('bk-files'); const b = e?.getBoundingClientRect(); return !!b && b.width > 0 && b.height > 0 && e.getAttribute('role') === 'switch';`));
+    await audit(p, 'Popup: Backups, "save as file" switch in Automatic backups', theme);
     await p.click('#bk-enabled');
     await p.type('#bk-keep', '0');
     await p.press('Tab');
@@ -267,6 +298,42 @@ async function popupBackupStates(p, theme) {
     await p.click('#snapshot-list > li:first-child button[aria-label*="elete"]');
     await audit(p, 'Popup: Backups, delete armed', theme);
     await p.press('Tab');
+    await compareStates(p, theme);
+}
+
+/** Two snapshots that differ in one tab each way, so the comparison has an added and a removed list. */
+async function makeDifferingSnapshots(p) {
+    const open = async (name) => { const t = await openTarget(`https://example.com/${name}`, true); await sleep(500); return t; };
+    const a = await open(`cmp-a-${Date.now()}`);
+    await p.send({ type: 'SNAPSHOT_CREATE' });
+    await cdp('Target.closeTarget', { targetId: a.targetId });
+    const b = await open(`cmp-b-${Date.now()}`);
+    await p.send({ type: 'SNAPSHOT_CREATE' });
+    await cdp('Target.closeTarget', { targetId: b.targetId });
+}
+
+async function compareStates(p, theme) {
+    await makeDifferingSnapshots(p);
+    await clickTab(p, 'export'); await clickTab(p, 'backups');
+    await p.waitFor(`document.querySelectorAll('#snapshot-list > li').length >= 2`);
+    await p.eval(`document.getElementById('snapshot-list').scrollIntoView();`);
+    await p.click('#btn-compare');
+    await p.waitFor(`document.querySelector('#snapshot-list [role=checkbox]')`);
+    await audit(p, 'Popup: Backups, compare mode (nothing selected)', theme);
+    await p.click('#snapshot-list > li:nth-child(1) [role=checkbox]');
+    await p.click('#snapshot-list > li:nth-child(2) [role=checkbox]');
+    await p.waitFor(`!document.getElementById('btn-compare-run').disabled`);
+    await audit(p, 'Popup: Backups, compare mode (two selected)', theme);
+    await p.click('#btn-compare-run');
+    await p.waitFor(`document.getElementById('snapshot-compare')`);
+    await audit(p, 'Popup: Snapshot comparison (collapsed)', theme);
+    for (const id of ['cmp-tabs-added', 'cmp-tabs-removed']) {
+        if (await p.eval(`return !!document.getElementById(${JSON.stringify(id)});`)) await openSection(p, id);
+        else console.log(`  (comparison has no ${id} list)`);
+    }
+    await audit(p, 'Popup: Snapshot comparison (lists expanded)', theme);
+    await p.click('#compare-back');
+    await p.waitFor(`document.getElementById('snapshot-list')`);
 }
 
 async function popupHeaderStates(p, theme) {
@@ -300,6 +367,39 @@ async function tabViewStates(theme) {
     const t = await p.eval('return document.documentElement.dataset.theme;');
     if (t !== theme) throw new Error(`theme not applied: ${t}`);
     await audit(p, 'Tab: Import empty', theme);
+
+    // Encrypted backup: unlock step, wrong password, unlocked review.
+    await p.setFile('#import-file', encryptedPath);
+    await p.waitFor(`document.getElementById('btn-unlock')`);
+    await audit(p, 'Tab: Import, encrypted backup unlock step', theme);
+    await p.type('#import-password', 'not the password');
+    await p.click('#btn-unlock');
+    await p.waitFor(`document.getElementById('import-password-error')`);
+    await audit(p, 'Tab: Import, unlock wrong password', theme);
+    await p.type('#import-password', BACKUP_PASSWORD);
+    await p.click('#btn-unlock');
+    await p.waitFor(`document.getElementById('import-summary') && document.getElementById('btn-import')`);
+    await audit(p, 'Tab: Import review (unlocked backup)', theme);
+
+    // Tab options: "Open in" radio group on "Current window", then restore the default.
+    await openSection(p, 'tab-options');
+    await p.click('#im-target-current-window');
+    await p.waitFor(`document.getElementById('im-restore-layout').disabled`);
+    await audit(p, 'Tab: Import review, tab options (open in current window)', theme);
+    await p.click('#im-target-new-windows');
+
+    // Search in the preview: results, then "Select only matching".
+    await p.type('#preview-search', 'page-1');
+    await p.waitFor(`document.getElementById('preview-results') && document.getElementById('btn-select-matching')`);
+    await p.eval(`document.getElementById('preview-card').scrollIntoView();`);
+    await audit(p, 'Tab: Import review, preview search results', theme);
+    await p.click('#btn-select-matching');
+    await p.waitFor(`document.getElementById('preview-total').textContent !== ''`);
+    await audit(p, 'Tab: Import review, search "Select only matching" applied', theme);
+    await p.type('#preview-search', 'zzz-no-such-tab');
+    await p.waitFor(`!document.getElementById('preview-results')`);
+    await audit(p, 'Tab: Import review, search with no matches', theme);
+    await p.click('#btn-clear-search');
 
     // Review with more than 200 tabs.
     await p.setFile('#import-file', bigPath);
@@ -480,8 +580,60 @@ async function keyboardChecks() {
     await sleep(200);
     check('Escape closes the menu and focus returns to its button', await p.eval(`return !document.querySelector('[role=menu]') && document.activeElement?.id === 'btn-menu';`));
 
-    // Toggle group arrows (Backups).
+    // Encrypted backup: autofocus, Enter submits (wrong, then right password).
+    await clickTab(p, 'import');
+    await p.setFile('#import-file', encryptedPath);
+    await p.waitFor(`document.getElementById('import-password')`);
+    check('Unlock: the password field is focused on arrival', await p.eval(`return document.activeElement?.id === 'import-password';`), await p.eval(`return document.activeElement?.id || document.activeElement?.tagName;`));
+    await tabOrderCheck(p, 'Unlock');
+    await p.type('#import-password', 'wrong password');
+    await p.press('Enter');
+    await p.waitFor(`document.getElementById('import-password-error')`);
+    await sleep(300);
+    check('Unlock: Enter in the password field submits (wrong password shows an error)', true);
+    check('Unlock: focus returns to the password field after a failed attempt', await p.eval(`return document.activeElement?.id === 'import-password';`), await p.eval(`return document.activeElement?.id || document.activeElement?.tagName;`));
+    check('Unlock: the error is announced and tied to the field', await p.eval(`const i = document.getElementById('import-password'); const e = document.getElementById('import-password-error'); return e?.getAttribute('role') === 'alert' && i.getAttribute('aria-invalid') === 'true' && (i.getAttribute('aria-describedby') || '').split(' ').includes('import-password-error');`));
+    await p.type('#import-password', BACKUP_PASSWORD);
+    await p.press('Enter');
+    await p.waitFor(`document.getElementById('import-summary') && document.getElementById('btn-import')`);
+    check('Unlock: Enter with the right password opens the review', true);
+
+    // Search: input -> results -> buttons, all by keyboard.
+    await p.type('#preview-search', 'page-1');
+    await p.waitFor(`document.getElementById('preview-results')`);
+    await tabOrderCheck(p, 'Import review (search results)');
+    await p.eval(`document.getElementById('preview-search').focus();`);
+    const searchOrder = [];
+    for (let i = 0; i < 6; i++) { await p.press('Tab'); searchOrder.push(await p.eval(`return document.activeElement?.id || document.activeElement?.tagName;`)); }
+    check('Search: Tab from the input reaches Select only matching and Clear', searchOrder.includes('btn-select-matching') && searchOrder.includes('btn-clear-search'), searchOrder.join(' > '));
+    await p.eval(`document.getElementById('btn-select-matching').focus();`);
+    await p.press('Enter');
+    check('Search: Select only matching works with Enter', await p.eval(`return /\\d/.test(document.getElementById('preview-total').textContent) && !!document.getElementById('btn-clear-search');`), await p.eval(`return document.getElementById('preview-total').textContent;`));
+    await p.eval(`document.getElementById('btn-clear-search').focus();`);
+    await p.press(' ');
+    check('Search: Clear works with Space', await p.eval(`return document.getElementById('preview-search').value === '';`));
+    await p.eval(`document.getElementById('btn-menu').focus();`);
+
+    // Compare mode checkboxes (Backups): reachable by Tab, toggled with Space.
     await clickTab(p, 'backups');
+    await p.waitFor(`document.getElementById('backups-panel')`);
+    for (let i = 0; i < 2 - (await p.send({ type: 'SNAPSHOTS_LIST' })).snapshots.length; i++) await p.send({ type: 'SNAPSHOT_CREATE' });
+    await clickTab(p, 'export'); await clickTab(p, 'backups');
+    await p.waitFor(`document.querySelectorAll('#snapshot-list > li').length >= 2`);
+    await p.click('#btn-compare');
+    await p.waitFor(`document.querySelector('#snapshot-list [role=checkbox]')`);
+    await tabOrderCheck(p, 'Backups (compare mode)');
+    await p.eval(`document.querySelector('#snapshot-list > li:nth-child(1) [role=checkbox]').focus();`);
+    await p.press(' ');
+    check('Compare: Space ticks a snapshot checkbox', await p.eval(`return document.querySelector('#snapshot-list > li:nth-child(1) [role=checkbox]').getAttribute('aria-checked') === 'true';`));
+    await p.eval(`document.querySelector('#snapshot-list > li:nth-child(2) [role=checkbox]').focus();`);
+    await p.press(' ');
+    check('Compare: the second checkbox ticks too and enables Compare', await p.eval(`return document.querySelector('#snapshot-list > li:nth-child(2) [role=checkbox]').getAttribute('aria-checked') === 'true' && !document.getElementById('btn-compare-run').disabled;`));
+    await p.press(' ');
+    check('Compare: Space unticks again', await p.eval(`return document.querySelector('#snapshot-list > li:nth-child(2) [role=checkbox]').getAttribute('aria-checked') === 'false';`));
+    await p.click('#btn-compare-cancel');
+
+    // Toggle group arrows (Backups).
     await p.waitFor(`document.getElementById('backups-panel')`);
     await openSection(p, 'backups-auto');
     await tabOrderCheck(p, 'Backups');

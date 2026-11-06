@@ -84,6 +84,9 @@ describe('search inside a backup', () => {
     expect(resultTitles()).toEqual(['Alpha docs', 'Docs for work']);
     expect($('#preview-match-count').textContent).toBe(tp('previewMatchCount', 2, '2'));
     expect(has('#preview-tree')).toBe(false);
+    // The scrollable results list is keyboard-reachable and named (axe: scrollable-region-focusable).
+    expect($('#preview-results').getAttribute('tabindex')).toBe('0');
+    expect($('#preview-results').getAttribute('aria-label')).toBe(t('previewResultsLabel'));
   });
 
   it('matches addresses too, case-insensitively, and needs every word', async () => {
