@@ -19,7 +19,8 @@
     "check": "pnpm typecheck && pnpm test && pnpm build && pnpm build:firefox && pnpm lint:firefox",
     "test:e2e": "wxt build && node tests/e2e/smoke.mjs",
     "test:e2e:firefox": "wxt build -b firefox && node tests/e2e/firefox.mjs",
-    "test:a11y": "wxt build && node tests/e2e/a11y.mjs"
+    "test:a11y": "wxt build && node tests/e2e/a11y.mjs",
+    "test:e2e:features": "wxt build && node tests/e2e/features.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
