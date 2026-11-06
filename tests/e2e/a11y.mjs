@@ -344,7 +344,12 @@ async function popupHeaderStates(p, theme) {
     await p.click('#btn-menu');
     await p.waitFor(`document.querySelector('[role=menu]')`);
     await audit(p, 'Popup: Header menu open', theme);
+    // Keyboard shortcuts dialog (from the menu).
+    await p.click('#btn-shortcuts');
+    await p.waitFor(`document.querySelector('#shortcuts-list li')`);
+    await audit(p, 'Popup: Keyboard shortcuts dialog', theme);
     await p.press('Escape');
+    await p.waitFor(`!document.getElementById('shortcuts-dialog')`);
     // Toast: "Back up now" on the Backups tab.
     await clickTab(p, 'backups');
     await p.click('#btn-backup-now');

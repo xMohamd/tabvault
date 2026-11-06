@@ -46,8 +46,11 @@ APIs at runtime, not guessed from the browser name.
   with the same name, and on Firefox reopen tabs in their containers (created if missing).
 - **Search inside a backup** and restore only the matching tabs.
 - **Quick save**: right-click the toolbar icon or a page ("Save this window" / "Save this
-  tab group"), or use the shortcuts Alt+Shift+S (save window), Alt+Shift+B (back up now)
-  and Alt+Shift+M (open the popup). Change them at chrome://extensions/shortcuts.
+  tab group"), or use the shortcuts Ctrl+Shift+, (save window), Ctrl+Shift+. (back up now)
+  and Ctrl+Shift+L (open the popup); Command instead of Ctrl on macOS. The popup's ⋯ menu →
+  Keyboard shortcuts shows what the browser actually assigned and opens its settings
+  (chrome://extensions/shortcuts, or Firefox's Manage Extension Shortcuts). Alt+Shift
+  combinations are avoided on purpose: many systems use Alt+Shift to switch keyboard layout.
 - **Compare two snapshots**: tabs, groups and bookmarks added or removed.
 - **Bookmarklets** (`javascript:` bookmarks) have their own option under Bookmarks on both
   Export and Import, on by default. The import summary says how many a file contains,

@@ -87,6 +87,15 @@ const setFile = async (path) => {
     await cdp('DOM.setFileInputFiles', { nodeId, files: [path] }, sessionId);
 };
 
+// --- 0. Keyboard shortcuts are all bound on a fresh install -------------------------------
+// (A suggested key that clashes with a browser key, like Alt+Shift+B, is silently left unset.)
+const commands = await evaluate(`return await chrome.commands.getAll();`);
+for (const name of ['_execute_action', 'backup-now', 'save-window']) {
+    const c = commands.find((x) => x.name === name);
+    ok(!!c?.shortcut, `shortcut ${name} bound: ${c?.shortcut || 'NOT SET'}`);
+}
+ok(commands.every((c) => !/Alt\+Shift/.test(c.shortcut)), 'no Alt+Shift shortcuts (keyboard-layout toggle on many systems)');
+
 // --- Seed: a window with 5 tabs, 2 of them in a group "Work" -------------------------------
 const seed = await evaluate(`
   const w = await chrome.windows.create({ url: '${siteBase}/p0.html', focused: false });

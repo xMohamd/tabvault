@@ -172,6 +172,15 @@ await section('GET_STATE', async () => {
   ok(state.importState?.status === 'idle', `import state idle (${state.importState?.status})`);
 });
 
+// ---------- 2b. keyboard shortcuts bound ----------
+await section('shortcuts', async () => {
+  const commands = await ext(() => browser.commands.getAll());
+  for (const name of ['_execute_action', 'backup-now', 'save-window']) {
+    const c = commands.find((x) => x.name === name);
+    ok(!!c?.shortcut, `shortcut ${name} bound: ${c?.shortcut || 'NOT SET'}`);
+  }
+});
+
 // ---------- 3. seed ----------
 let seed;
 await section('seed', async () => {
