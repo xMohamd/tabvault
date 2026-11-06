@@ -16,6 +16,7 @@ import {
   MoonIcon,
   MoreHorizontalIcon,
   ClipboardCopyIcon,
+  KeyboardIcon,
   SunIcon,
   UploadIcon,
   type LucideIcon,
@@ -43,6 +44,7 @@ import { useWorkerSync } from './hooks/useWorkerSync';
 import { ExportPanel } from './components/ExportPanel';
 import { ImportPanel } from './components/ImportPanel';
 import { BackupsPanel } from './components/BackupsPanel';
+import { ShortcutsDialog } from './components/ShortcutsDialog';
 import { describeFinish } from './components/ResultsCard';
 
 const IDLE: ImportState = { status: 'idle', current: 0, total: 0, message: '' };
@@ -76,6 +78,7 @@ export function App() {
   const [importState, setImportState] = useState<ImportState>(IDLE);
   const [dismissedFinish, setDismissedFinish] = useState<string | null>(null);
   const [dark, setDark] = useState(() => resolveTheme() === 'dark');
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const reportedFinish = useRef<string | null>(null);
   /** Current tab for callbacks: the finish toast is skipped when the results view is on screen. */
   const tabRef = useRef(tab);
@@ -217,6 +220,10 @@ export function App() {
                       {t('openInTab')}
                     </DropdownMenuItem>
                   )}
+                  <DropdownMenuItem id="btn-shortcuts" onSelect={() => setShortcutsOpen(true)}>
+                    <KeyboardIcon />
+                    {t('shortcutsMenu')}
+                  </DropdownMenuItem>
                   <DropdownMenuItem id="btn-diagnostics" onSelect={() => void copyDiagnostics()}>
                     <ClipboardCopyIcon />
                     {t('diagnosticsButton')}
@@ -301,6 +308,7 @@ export function App() {
           </Tabs>
         </main>
         {/* Bottom, just above each panel's pinned action bar (~68px): keeps the header and tabs visible. */}
+        <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} browserInfo={browser} />
         <Toaster position="bottom-center" offset={{ bottom: 76 }} mobileOffset={{ bottom: 76 }} richColors closeButton duration={4000} />
       </div>
     </TooltipProvider>

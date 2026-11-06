@@ -1792,5 +1792,45 @@
   "previewResultsLabel": {
     "message": "Matching tabs",
     "description": "Accessible name of the scrollable list of tabs that match the search."
+  },
+  "shortcutsMenu": {
+    "message": "Keyboard shortcuts",
+    "description": "Header menu item: shows the extension keyboard shortcuts."
+  },
+  "shortcutsTitle": {
+    "message": "Keyboard shortcuts",
+    "description": "Title of the keyboard shortcuts dialog."
+  },
+  "shortcutsIntro": {
+    "message": "Shortcuts work anywhere in the browser. They are set by the browser, so you can change them there.",
+    "description": "Explains where shortcuts come from, in the shortcuts dialog."
+  },
+  "shortcutOpenPopup": {
+    "message": "Open TabVault",
+    "description": "Name of the shortcut that opens the popup."
+  },
+  "shortcutNotSet": {
+    "message": "Not set",
+    "description": "Shown when a shortcut has no key assigned."
+  },
+  "shortcutsChange": {
+    "message": "Change shortcuts",
+    "description": "Button: opens the browser page where extension shortcuts are edited."
+  },
+  "shortcutsHint": {
+    "message": "If a shortcut does nothing, your system may be using those keys (for example Alt+Shift to switch keyboard layout). Choose different keys in the browser.",
+    "description": "Troubleshooting hint in the shortcuts dialog."
+  },
+  "shortcutsFirefoxHow": {
+    "message": "In Firefox: Add-ons and themes (about:addons), gear menu, Manage Extension Shortcuts.",
+    "description": "Where to change shortcuts in Firefox, shown when the page cannot be opened automatically."
+  },
+  "shortcutsLoadFailed": {
+    "message": "Could not read the shortcuts.",
+    "description": "Error in the shortcuts dialog."
+  },
+  "dialogClose": {
+    "message": "Close",
+    "description": "Accessible name of a dialog close button."
   }
 }
