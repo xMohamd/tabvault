@@ -3,12 +3,14 @@
  * collapsed Filters/Options, and the main action pinned at the bottom.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { DownloadIcon } from 'lucide-react';
+import { DownloadIcon, TriangleAlertIcon } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { FieldDescription, FieldGroup, FieldLabel, Field, FieldSeparator } from '@/components/ui/field';
+import { FieldDescription, FieldError, FieldGroup, FieldLabel, Field, FieldSeparator } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
+import { MIN_PASSWORD_LENGTH } from '@/lib/crypto';
 import { send } from '@/lib/messaging';
 import { t, tp } from '@/lib/i18n';
 import type { ExportOptions, ExportStats } from '@/lib/types';
@@ -98,6 +100,9 @@ export function ExportPanel({ setStatus }: { setStatus: SetStatus }) {
   const [favicons, setFavicons] = useState(false);
   const [unwrap, setUnwrap] = useState(true);
   const [layout, setLayout] = useState(true);
+  const [encrypt, setEncrypt] = useState(false);
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
 
   const domains = parseDomains(domain);
@@ -119,19 +124,24 @@ export function ExportPanel({ setStatus }: { setStatus: SetStatus }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tabs, bookmarks, bookmarklets, favicons, unwrap, layout, excludeInternal, domain, filterBookmarksDisabled, filterBookmarks],
   );
+  // The password is deliberately not part of `options`: it must not reach the preview or its cache key.
+  const passwordTooShort = encrypt && password.length > 0 && password.length < MIN_PASSWORD_LENGTH;
+  const passwordMismatch = encrypt && confirm.length > 0 && confirm !== password;
+  const passwordInvalid = encrypt && (password.length < MIN_PASSWORD_LENGTH || confirm !== password);
   const stats = useExportPreview(options, anySelected);
   const loading = anySelected && stats === null;
 
   const filtersSummary = domains.length > 0 ? (domains.length > 1 ? `${domains[0]} +${domains.length - 1}` : domains[0]) : t('filtersOff');
-  const optionsOn = [favicons, unwrap, layout].filter(Boolean).length;
+  const optionsOn = [favicons, unwrap, layout, encrypt].filter(Boolean).length;
 
   async function handleExport() {
     if (!anySelected) {
       setStatus(t('exportNothingSelected'), TONE.warning);
       return;
     }
+    if (passwordInvalid) return;
     setBusy(true);
-    const response = await send('EXPORT', { options, saveAs: true });
+    const response = await send('EXPORT', { options: encrypt ? { ...options, password } : options, saveAs: true });
     setBusy(false);
 
     if (response.ok) {
@@ -202,6 +212,51 @@ export function ExportPanel({ setStatus }: { setStatus: SetStatus }) {
           <SwitchRow id="ex-favicons" label={t('exportIncludeFavicons')} checked={favicons} onChange={setFavicons} />
           <SwitchRow id="ex-unwrap" label={t('exportUnwrapPlaceholders')} checked={unwrap} onChange={setUnwrap} />
           <SwitchRow id="ex-layout" label={t('exportIncludeWindowLayout')} checked={layout} onChange={setLayout} />
+          <SwitchRow
+            id="ex-encrypt"
+            label={t('exportEncryptLabel')}
+            description={t('exportEncryptDescription')}
+            checked={encrypt}
+            onChange={(on) => {
+              setEncrypt(on);
+              if (!on) {
+                setPassword('');
+                setConfirm('');
+              }
+            }}
+          />
+          {encrypt && (
+            <FieldGroup className="gap-3">
+              <Field data-invalid={passwordTooShort || undefined}>
+                <FieldLabel htmlFor="ex-password">{t('exportPasswordLabel')}</FieldLabel>
+                <Input
+                  id="ex-password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="new-password"
+                  aria-invalid={passwordTooShort}
+                />
+                {passwordTooShort && <FieldError id="ex-password-error">{t('exportPasswordTooShort', MIN_PASSWORD_LENGTH)}</FieldError>}
+              </Field>
+              <Field data-invalid={passwordMismatch || undefined}>
+                <FieldLabel htmlFor="ex-password-confirm">{t('exportPasswordConfirmLabel')}</FieldLabel>
+                <Input
+                  id="ex-password-confirm"
+                  type="password"
+                  value={confirm}
+                  onChange={(event) => setConfirm(event.target.value)}
+                  autoComplete="new-password"
+                  aria-invalid={passwordMismatch}
+                />
+                {passwordMismatch && <FieldError id="ex-password-confirm-error">{t('exportPasswordMismatch')}</FieldError>}
+              </Field>
+              <Alert id="ex-encrypt-warning">
+                <TriangleAlertIcon />
+                <AlertDescription>{t('exportEncryptWarning')}</AlertDescription>
+              </Alert>
+            </FieldGroup>
+          )}
         </SettingsSection>
       </div>
 
@@ -211,7 +266,7 @@ export function ExportPanel({ setStatus }: { setStatus: SetStatus }) {
             {t('exportNothingSelected')}
           </p>
         )}
-        <Button id="btn-export" size="lg" className="w-full" disabled={!anySelected || busy} onClick={() => void handleExport()}>
+        <Button id="btn-export" size="lg" className="w-full" disabled={!anySelected || busy || passwordInvalid} onClick={() => void handleExport()}>
           {busy ? <Spinner data-icon="inline-start" /> : <DownloadIcon data-icon="inline-start" />}
           {busy ? t('statusExporting') : buttonLabel(tabs, bookmarks, stats)}
         </Button>

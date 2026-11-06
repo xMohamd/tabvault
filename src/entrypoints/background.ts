@@ -13,7 +13,9 @@ import { detectBrowserAsync } from '@/lib/browser-detect';
 import { UniversalExporter } from '@/lib/exporter';
 import { UniversalImporter } from '@/lib/importer';
 import * as scheduler from '@/lib/backup-scheduler';
+import { registerQuickActions } from '@/lib/quick-actions';
 import { saveJsonFile } from '@/lib/downloads';
+import { encryptBackup } from '@/lib/crypto';
 import type { Backup } from '@/lib/schema';
 import type {
   DiagnosticsReport,
@@ -85,6 +87,7 @@ const handlers: Handlers = {
 };
 
 export default defineBackground(() => {
+  registerQuickActions();
   browser.runtime.onInstalled.addListener((details) => {
     logger.info('EXTENSION_INSTALLED', { reason: details.reason });
     void scheduler.ensureAlarm().catch((e: unknown) => logger.warn('ALARM_SETUP_FAILED', {}, e));
@@ -125,8 +128,15 @@ async function handleExport(
   if (!info.features.downloads) {
     return { ok: false, error: 'This browser does not support saving files from extensions.' };
   }
-  const { data, stats } = await new UniversalExporter({ browser: info }).export(options);
+  // The password stays out of the exporter, which logs its options.
+  const { password, ...exportOptions } = options;
+  const { data, stats } = await new UniversalExporter({ browser: info }).export(exportOptions);
   const date = new Date().toISOString().slice(0, 10); // ISO keeps files sortable by name
+  if (password) {
+    const envelope = await encryptBackup(JSON.stringify(data), password);
+    const saved = await saveJsonFile(envelope, `${EXPORT_FILENAME_PREFIX}${date}.encrypted.json`, { saveAs });
+    return saved.ok ? { ok: true, filename: saved.filename, stats } : saved;
+  }
   const result = await downloadJson(data, `${EXPORT_FILENAME_PREFIX}${date}.json`, saveAs);
   return result.ok ? { ...result, stats } : result;
 }

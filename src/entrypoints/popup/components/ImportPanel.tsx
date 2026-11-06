@@ -3,12 +3,17 @@
  * running → progress, finished → results, backup loaded → review, otherwise → choose a file.
  * The review stays mounted (hidden) behind the others so selections survive a restore.
  */
-import { useRef, useState, type DragEvent, type MouseEvent } from 'react';
-import { ExternalLinkIcon, FileUpIcon } from 'lucide-react';
+import { useRef, useState, type DragEvent, type FormEvent, type MouseEvent } from 'react';
+import { ExternalLinkIcon, FileUpIcon, LockKeyholeIcon } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { t } from '@/lib/i18n';
-import { parseBackupFile } from '@/lib/formats';
+import { decryptBackup, EncryptedFormatError, WrongPasswordError, type EncryptedEnvelope } from '@/lib/crypto';
+import { EncryptedBackupError, parseBackupFile } from '@/lib/formats';
 import { BackupFormatError, normalizeBackup, type NormalizeWarnings } from '@/lib/schema';
 import type { BrowserInfo } from '@/lib/browser-detect';
 import type { ImportState } from '@/lib/types';
@@ -41,6 +46,73 @@ function collectWarnings(text: string, parsed: { format: string; data: unknown }
   }
 }
 
+/** Asks for the password of an encrypted backup; unmounting drops the typed password. */
+function UnlockStep({
+  envelope,
+  onUnlocked,
+  onChooseAnother,
+}: {
+  envelope: EncryptedEnvelope;
+  onUnlocked: (text: string) => void;
+  onChooseAnother: () => void;
+}) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function unlock(event?: FormEvent) {
+    event?.preventDefault();
+    if (busy || password === '') return;
+    setBusy(true);
+    setError(null);
+    try {
+      const text = await decryptBackup(envelope, password);
+      setPassword('');
+      onUnlocked(text);
+    } catch (caught) {
+      if (caught instanceof WrongPasswordError) setError(t('importWrongPassword'));
+      else if (caught instanceof EncryptedFormatError) setError(t('importUnlockFailed', caught.message));
+      else {
+        console.warn('[TabVault] Unlock failed', caught);
+        setError(t('importUnlockFailed', t('errorUnknown')));
+      }
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form id="import-unlock" className="flex min-h-0 flex-1 flex-col gap-3 p-4" onSubmit={(event) => void unlock(event)}>
+      <Alert id="import-encrypted-notice">
+        <LockKeyholeIcon />
+        <AlertDescription>{t('importEncryptedNotice')}</AlertDescription>
+      </Alert>
+      <Field data-invalid={error ? true : undefined}>
+        <FieldLabel htmlFor="import-password">{t('importPasswordLabel')}</FieldLabel>
+        <Input
+          id="import-password"
+          type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          autoComplete="current-password"
+          autoFocus
+          disabled={busy}
+          aria-invalid={error ? true : undefined}
+        />
+        {error && <FieldError id="import-password-error">{error}</FieldError>}
+      </Field>
+      <div className="flex gap-2">
+        <Button type="submit" id="btn-unlock" disabled={busy || password === ''}>
+          {busy && <Spinner data-icon="inline-start" />}
+          {busy ? t('importUnlocking') : t('importUnlockButton')}
+        </Button>
+        <Button type="button" id="btn-unlock-cancel" variant="outline" disabled={busy} onClick={onChooseAnother}>
+          {t('importChooseAnother')}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 interface PanelProps {
   active: boolean;
   browser: BrowserInfo;
@@ -57,12 +129,12 @@ interface PanelProps {
 
 export function ImportPanel(props: PanelProps) {
   const { browser, importState, resultsVisible, isTabView, importer, setStatus } = props;
-  const { candidate, fileInfo, importMessage, setFileInfo, setImportMessage, reset, accept } = importer;
+  const { candidate, locked, setLocked, fileInfo, importMessage, setFileInfo, setImportMessage, reset, accept } = importer;
   const [settings, setSettings] = useState<RestoreSettings>(DEFAULT_SETTINGS);
   const [dragOver, setDragOver] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const running = importState.status === 'running' || importState.status === 'cancelling';
-  const view = running ? 'running' : resultsVisible ? 'results' : candidate ? 'review' : 'empty';
+  const view = running ? 'running' : resultsVisible ? 'results' : locked ? 'unlock' : candidate ? 'review' : 'empty';
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
@@ -88,9 +160,14 @@ export function ImportPanel(props: PanelProps) {
       clearInput();
     }
 
+    loadText(text, file.name);
+  }
+
+  /** Parses file contents and makes them the candidate; encrypted files go to the unlock step. */
+  function loadText(text: string, filename: string) {
     try {
       const parsed = parseBackupFile(text, {
-        filename: file.name,
+        filename,
         parseHtml: (html) => new DOMParser().parseFromString(html, 'text/html'),
       });
       const labelKey = FORMAT_LABEL_KEYS[parsed.format];
@@ -98,10 +175,12 @@ export function ImportPanel(props: PanelProps) {
         data: parsed.data,
         label: labelKey ? t(labelKey) : parsed.label,
         warnings: collectWarnings(text, parsed),
-        message: t('fileLoaded', file.name),
+        message: t('fileLoaded', filename),
       });
     } catch (error) {
-      if (error instanceof BackupFormatError) {
+      if (error instanceof EncryptedBackupError) {
+        setLocked({ envelope: error.envelope, filename });
+      } else if (error instanceof BackupFormatError) {
         setFileInfo({ text: t('fileInvalid', error.message), tone: TONE.error });
       } else {
         console.warn('[TabVault] File parse failed', error);
@@ -191,6 +270,21 @@ export function ImportPanel(props: PanelProps) {
             </ToneAlert>
           )}
         </div>
+      )}
+
+      {view === 'unlock' && locked && (
+        <UnlockStep
+          key={locked.filename}
+          envelope={locked.envelope}
+          onUnlocked={(text) => {
+            setLocked(null); // A decrypted file that is unusable falls back to the file chooser with its message.
+            loadText(text, locked.filename);
+          }}
+          onChooseAnother={() => {
+            reset();
+            chooseFile();
+          }}
+        />
       )}
 
       {candidate && (
