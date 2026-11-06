@@ -33,16 +33,21 @@ export default defineConfig({
       // Firefox containers: read names/colors and reopen tabs in them.
       ...(browser === 'firefox' ? ['contextualIdentities', 'cookies'] : []),
     ],
+    // Suggested keys avoid Alt+Shift, which many systems use to switch keyboard layout
+    // (it swallows Alt+Shift+<key> before the browser sees it), and keys the browsers
+    // already own (Alt+Shift+B = Chrome's "focus bookmarks bar"; Ctrl+Shift+K/E/Y in
+    // Firefox; Ctrl+Shift+U = Linux Unicode input). Chrome applies suggested keys only on
+    // first install; users can change them in the browser's shortcut settings.
     commands: {
       _execute_action: {
-        suggested_key: { default: 'Alt+Shift+M' },
+        suggested_key: { default: 'Ctrl+Shift+L', mac: 'Command+Shift+L' },
       },
       'backup-now': {
-        suggested_key: { default: 'Alt+Shift+B' },
+        suggested_key: { default: 'Ctrl+Shift+Period', mac: 'Command+Shift+Period' },
         description: '__MSG_commandBackupNow__',
       },
       'save-window': {
-        suggested_key: { default: 'Alt+Shift+S' },
+        suggested_key: { default: 'Ctrl+Shift+Comma', mac: 'Command+Shift+Comma' },
         description: '__MSG_commandSaveWindow__',
       },
     },
