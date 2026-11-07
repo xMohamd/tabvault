@@ -2,7 +2,7 @@
  * Shared contracts between the background script, the library modules and the popup.
  * Changing a type here is a protocol change: update both sides.
  */
-import type { Backup, NormalizeWarnings } from './schema';
+import type { Backup, GroupColor, NormalizeWarnings } from './schema';
 import type { BrowserInfo } from './browser-detect';
 
 // ---------- export ----------
@@ -158,6 +158,33 @@ export interface DiagnosticsReport {
   logs: Array<{ timestamp: string; level: string; action: string; error: { message: string; stack?: string } | null }>;
 }
 
+// ---------- search ----------
+
+export interface SearchSource {
+  id: string;
+  label: string;
+  date: string | null;
+}
+
+/** One page found by a search across backups (deduplicated by kind + address). */
+export interface SearchResult {
+  kind: 'tab' | 'bookmark';
+  /** dedupKey of the url. */
+  key: string;
+  url: string;
+  title: string;
+  favIconUrl?: string;
+  pinned?: boolean;
+  group?: { title: string; color: GroupColor };
+  container?: { name: string; color?: string; icon?: string };
+  /** Bookmarks: folder titles from the top, without the tree root. */
+  folderPath?: string[];
+  /** Every backup the page appears in, newest first. */
+  sources: SearchSource[];
+  /** Date of the newest source. */
+  latest: string | null;
+}
+
 // ---------- messaging protocol (popup -> background) ----------
 
 type Ok<T = object> = { ok: true } & T;
@@ -181,6 +208,10 @@ export interface Protocol {
   SNAPSHOT_DELETE: { req: { id: string }; res: Reply };
   SNAPSHOT_GET: { req: { id: string }; res: Reply<{ data: Backup }> };
   SNAPSHOT_DOWNLOAD: { req: { id: string }; res: Reply<{ filename: string }> };
+  SEARCH_SNAPSHOTS: {
+    req: { query: string; limit?: number };
+    res: Reply<{ results: SearchResult[]; total: number; searched: number }>;
+  };
   SCHEDULE_SET: { req: { settings: Partial<ScheduleSettings> }; res: Reply<{ settings: ScheduleSettings }> };
 }
 
