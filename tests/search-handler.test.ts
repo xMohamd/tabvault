@@ -67,6 +67,25 @@ describe('SEARCH_SNAPSHOTS', () => {
     expect(capped.total).toBeGreaterThan(1);
   });
 
+  it('searches only the snapshots in `ids` and reports how many were searched and how many exist', async () => {
+    const [newest, oldest] = await sched.listSnapshots().then((l) => [...l].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+    const all = await call({ type: 'SEARCH_SNAPSHOTS', query: 'shared' });
+    expect(all).toMatchObject({ ok: true, searched: 2, available: 2 });
+
+    const onlyOld = await call({ type: 'SEARCH_SNAPSHOTS', query: 'shared', ids: [oldest.id] });
+    expect(onlyOld).toMatchObject({ ok: true, searched: 1, available: 2 });
+    expect(onlyOld.results.every((r) => r.sources.length === 1 && r.sources[0].id === oldest.id)).toBe(true);
+    // "second.example/shared-docs" was only open when the newer snapshot was taken.
+    expect(onlyOld.results.some((r) => r.url.includes('second.example'))).toBe(false);
+    const onlyNew = await call({ type: 'SEARCH_SNAPSHOTS', query: 'shared', ids: [newest.id] });
+    expect(onlyNew.results.some((r) => r.url.includes('second.example'))).toBe(true);
+
+    // Unknown ids are ignored; an empty list searches nothing; undefined means all.
+    expect(await call({ type: 'SEARCH_SNAPSHOTS', query: 'shared', ids: ['nope', newest.id] })).toMatchObject({ searched: 1, available: 2 });
+    expect(await call({ type: 'SEARCH_SNAPSHOTS', query: 'shared', ids: [] })).toMatchObject({ ok: true, results: [], total: 0, searched: 0, available: 2 });
+    expect(await call({ type: 'SEARCH_SNAPSHOTS', query: 'shared', ids: undefined })).toMatchObject({ searched: 2, available: 2 });
+  });
+
   it('answers an empty query and a store without snapshots', async () => {
     expect(await call({ type: 'SEARCH_SNAPSHOTS', query: '  ' })).toMatchObject({ ok: true, results: [], total: 0, searched: 2 });
     for (const m of await sched.listSnapshots()) await sched.deleteSnapshot(m.id);

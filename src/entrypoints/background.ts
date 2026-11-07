@@ -88,14 +88,17 @@ const handlers: Handlers = {
   },
   SEARCH_SNAPSHOTS: async (msg) => {
     const snapshots = await scheduler.getAllSnapshots();
-    const sources = snapshots.map(({ meta, data }) => ({
-      id: meta.id,
-      label: snapshotLabel(meta),
-      date: meta.createdAt,
-      data,
-    }));
+    const wanted = Array.isArray(msg.ids) ? new Set(msg.ids) : null;
+    const sources = snapshots
+      .filter(({ meta }) => !wanted || wanted.has(meta.id))
+      .map(({ meta, data }) => ({
+        id: meta.id,
+        label: snapshotLabel(meta),
+        date: meta.createdAt,
+        data,
+      }));
     const { results, total } = searchBackups(sources, String(msg.query ?? ''), { limit: msg.limit });
-    return { ok: true, results, total, searched: sources.length };
+    return { ok: true, results, total, searched: sources.length, available: snapshots.length };
   },
   SCHEDULE_SET: async (msg) => ({ ok: true, settings: await scheduler.saveSettings(msg.settings ?? {}) }),
 };

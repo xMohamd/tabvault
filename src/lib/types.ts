@@ -209,8 +209,10 @@ export interface Protocol {
   SNAPSHOT_GET: { req: { id: string }; res: Reply<{ data: Backup }> };
   SNAPSHOT_DOWNLOAD: { req: { id: string }; res: Reply<{ filename: string }> };
   SEARCH_SNAPSHOTS: {
-    req: { query: string; limit?: number };
-    res: Reply<{ results: SearchResult[]; total: number; searched: number }>;
+    /** `ids`: search only these snapshots (undefined = all). */
+    req: { query: string; limit?: number; ids?: string[] };
+    /** `searched` = snapshots actually searched, `available` = all stored snapshots. */
+    res: Reply<{ results: SearchResult[]; total: number; searched: number; available: number }>;
   };
   SCHEDULE_SET: { req: { settings: Partial<ScheduleSettings> }; res: Reply<{ settings: ScheduleSettings }> };
 }
