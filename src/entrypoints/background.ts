@@ -16,9 +16,12 @@ import * as scheduler from '@/lib/backup-scheduler';
 import { registerQuickActions } from '@/lib/quick-actions';
 import { saveJsonFile } from '@/lib/downloads';
 import { encryptBackup } from '@/lib/crypto';
+import { t } from '@/lib/i18n';
+import { searchBackups } from '@/lib/snapshot-search';
 import type { Backup } from '@/lib/schema';
 import type {
   DiagnosticsReport,
+  SnapshotMeta,
   ImportOptions,
   ImportResult,
   ImportState,
@@ -83,6 +86,17 @@ const handlers: Handlers = {
     const stamp = (data.exportedAt ?? new Date().toISOString()).slice(0, 19).replace(/[:T]/g, '-');
     return downloadJson(data, `${SNAPSHOT_FILENAME_PREFIX}${stamp}.json`, true);
   },
+  SEARCH_SNAPSHOTS: async (msg) => {
+    const snapshots = await scheduler.getAllSnapshots();
+    const sources = snapshots.map(({ meta, data }) => ({
+      id: meta.id,
+      label: snapshotLabel(meta),
+      date: meta.createdAt,
+      data,
+    }));
+    const { results, total } = searchBackups(sources, String(msg.query ?? ''), { limit: msg.limit });
+    return { ok: true, results, total, searched: sources.length };
+  },
   SCHEDULE_SET: async (msg) => ({ ok: true, settings: await scheduler.saveSettings(msg.settings ?? {}) }),
 };
 
@@ -117,6 +131,27 @@ export default defineBackground(() => {
     return true; // async response
   });
 });
+
+// ---------- search ----------
+
+const REASON_LABELS: Record<string, [key: string, fallback: string]> = {
+  scheduled: ['reasonScheduled', 'Scheduled'],
+  manual: ['reasonManual', 'Manual'],
+  quick: ['reasonQuick', 'Quick save'],
+  'pre-replace': ['reasonPreReplace', 'Before replace'],
+  'pre-import': ['reasonPreImport', 'Before import'],
+};
+const labelDate = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+
+/** "Manual · Nov 8, 2026, 10:00 AM"; quick saves name what was saved instead of the reason. */
+function snapshotLabel(meta: SnapshotMeta): string {
+  const [key, fallback] = REASON_LABELS[meta.reason] ?? [meta.reason, String(meta.reason)];
+  const translated = t(key);
+  const reason = translated === key ? fallback : translated;
+  const what = meta.reason === 'quick' && meta.scope?.title ? meta.scope.title : reason;
+  const when = Number.isFinite(Date.parse(meta.createdAt)) ? labelDate.format(new Date(meta.createdAt)) : '';
+  return when ? `${what} · ${when}` : what;
+}
 
 // ---------- export ----------
 

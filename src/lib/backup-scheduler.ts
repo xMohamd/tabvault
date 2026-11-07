@@ -340,6 +340,22 @@ export async function getSnapshot(id: string): Promise<Backup | null> {
 }
 
 /**
+ * Every snapshot with its body, newest first, read with ONE storage call.
+ * Snapshots whose body is missing or malformed are skipped.
+ */
+export async function getAllSnapshots(): Promise<Array<{ meta: SnapshotMeta; data: Backup }>> {
+  const index = (await readIndex()).sort(newestFirst);
+  if (index.length === 0) return [];
+  const bodies = await storage().get(index.map((m) => bodyKey(m.id)));
+  const out: Array<{ meta: SnapshotMeta; data: Backup }> = [];
+  for (const meta of index) {
+    const data: unknown = bodies[bodyKey(meta.id)];
+    if (data && typeof data === 'object') out.push({ meta, data: data as Backup });
+  }
+  return out;
+}
+
+/**
  * Deletes a snapshot from the extension's storage only. Its backup file (`meta.file`) is
  * deliberately left alone: the user asked to delete the snapshot, not their file. Only
  * automatic pruning removes files the extension created.
