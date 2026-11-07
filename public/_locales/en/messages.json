@@ -1832,5 +1832,261 @@
   "dialogClose": {
     "message": "Close",
     "description": "Accessible name of a dialog close button."
+  },
+  "searchBackupsLabel": {
+    "message": "Search all backups",
+    "description": "Placeholder and accessible name of the search box on the Backups tab. It searches every saved snapshot (and the file loaded in the Import tab) for tabs and bookmarks."
+  },
+  "searchResultsLabel": {
+    "message": "Search results",
+    "description": "Accessible name of the list of search results across backups."
+  },
+  "searchResultsCount_one": {
+    "message": "$COUNT$ result",
+    "description": "Number of search results (singular). Used in the summary line.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "1"
+      }
+    }
+  },
+  "searchResultsCount_other": {
+    "message": "$COUNT$ results",
+    "description": "Number of search results (plural). Used in the summary line.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "searchBackupsCount_one": {
+    "message": "$COUNT$ backup",
+    "description": "Number of backups searched (singular). Used in the summary line.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "1"
+      }
+    }
+  },
+  "searchBackupsCount_other": {
+    "message": "$COUNT$ backups",
+    "description": "Number of backups searched (plural). Used in the summary line.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "7"
+      }
+    }
+  },
+  "searchSummary": {
+    "message": "$RESULTS$ in $BACKUPS$",
+    "description": "Summary line above the search results. $RESULTS$ is for example '12 results' and $BACKUPS$ is for example '7 backups'.",
+    "placeholders": {
+      "results": {
+        "content": "$1",
+        "example": "12 results"
+      },
+      "backups": {
+        "content": "$2",
+        "example": "7 backups"
+      }
+    }
+  },
+  "searchCapped": {
+    "message": "Showing the first $COUNT$.",
+    "description": "Appended to the summary when there are more matches than can be listed. $COUNT$ is the number shown.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "500"
+      }
+    }
+  },
+  "searchFilterLabel": {
+    "message": "Show",
+    "description": "Accessible name of the All / Tabs / Bookmarks filter above the search results."
+  },
+  "searchFilterAll": {
+    "message": "All $COUNT$",
+    "description": "Filter button: show tabs and bookmarks. $COUNT$ is the number of results.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "12"
+      }
+    }
+  },
+  "searchFilterTabs": {
+    "message": "Tabs $COUNT$",
+    "description": "Filter button: show only tabs. $COUNT$ is the number of results.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "8"
+      }
+    }
+  },
+  "searchFilterBookmarks": {
+    "message": "Bookmarks $COUNT$",
+    "description": "Filter button: show only bookmarks. $COUNT$ is the number of results.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "4"
+      }
+    }
+  },
+  "searchSelectAll": {
+    "message": "Select all",
+    "description": "Button: tick every search result that is currently shown."
+  },
+  "searchClearSelection": {
+    "message": "Clear selection",
+    "description": "Button: untick every search result."
+  },
+  "searchInBackups_one": {
+    "message": "in $COUNT$ backup · $DATE$",
+    "description": "Where a result was found (singular). $DATE$ is the date of the newest backup containing it.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "1"
+      },
+      "date": {
+        "content": "$2",
+        "example": "Nov 8"
+      }
+    }
+  },
+  "searchInBackups_other": {
+    "message": "in $COUNT$ backups · $DATE$",
+    "description": "Where a result was found (plural). $DATE$ is the date of the newest backup containing it.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      },
+      "date": {
+        "content": "$2",
+        "example": "Nov 8"
+      }
+    }
+  },
+  "searchSourcesLabel": {
+    "message": "$SUMMARY$: $SOURCES$",
+    "description": "Accessible name of the button listing the backups that contain a result. It starts with the visible text so that voice control works. $SUMMARY$ is that visible text (for example 'in 3 backups · Nov 8') and $SOURCES$ is a list of backup names.",
+    "placeholders": {
+      "summary": {
+        "content": "$1",
+        "example": "in 3 backups · Nov 8"
+      },
+      "sources": {
+        "content": "$2",
+        "example": "Manual · Nov 8; Scheduled · Nov 7"
+      }
+    }
+  },
+  "searchSourcesMore": {
+    "message": "and $COUNT$ more",
+    "description": "Shown at the end of the list of backups containing a result when the list is cut short.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "4"
+      }
+    }
+  },
+  "searchLoadedFile": {
+    "message": "Loaded file: $NAME$",
+    "description": "Name of the file loaded in the Import tab, shown as a place a search result was found.",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "backup.json"
+      }
+    }
+  },
+  "searchNoMatches": {
+    "message": "No matches",
+    "description": "Title of the empty state when a search across backups finds nothing."
+  },
+  "searchNoMatchesHint": {
+    "message": "Nothing in your backups matches “$QUERY$”.",
+    "description": "Description of the empty state of the backup search. $QUERY$ is what the user typed.",
+    "placeholders": {
+      "query": {
+        "content": "$1",
+        "example": "github"
+      }
+    }
+  },
+  "searchFailed": {
+    "message": "Search failed: $ERROR$",
+    "description": "Error when searching the backups fails. $ERROR$ is the reason.",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "timeout"
+      }
+    }
+  },
+  "searchRestoreSelected": {
+    "message": "Restore $COUNT$ selected",
+    "description": "Button: load the ticked search results into the Import tab for restoring. $COUNT$ is how many are ticked.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "searchBookmarksFolder": {
+    "message": "Restored from search",
+    "description": "Name of the bookmark folder that receives bookmarks restored from search results."
+  },
+  "formatSearchResults": {
+    "message": "Search results",
+    "description": "Source name shown in the Import tab when items picked from a backup search are loaded."
+  },
+  "fileLoadedSearch_one": {
+    "message": "Loaded $COUNT$ selected item from your backups.",
+    "description": "Confirmation that search results were loaded for restoring (singular).",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "1"
+      }
+    }
+  },
+  "fileLoadedSearch_other": {
+    "message": "Loaded $COUNT$ selected items from your backups.",
+    "description": "Confirmation that search results were loaded for restoring (plural).",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "searchResultPinned": {
+    "message": "Pinned",
+    "description": "Small label on a search result that was a pinned tab."
+  },
+  "searchRowGroup": {
+    "message": "Tab group: $GROUP$",
+    "description": "Accessible name of the tab group marker on a search result. $GROUP$ is the group name.",
+    "placeholders": {
+      "group": {
+        "content": "$1",
+        "example": "Work"
+      }
+    }
+  },
+  "searchSelectToRestore": {
+    "message": "Select results to restore",
+    "description": "Disabled restore button on search results while nothing is ticked."
   }
 }

@@ -7,7 +7,7 @@
  *
  * The same page also runs as a full tab: popup.html?view=tab#import.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   DownloadIcon,
@@ -35,7 +35,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { browser as ext } from 'wxt/browser';
 import { send } from '@/lib/messaging';
-import { t } from '@/lib/i18n';
+import { t, tp } from '@/lib/i18n';
 import { isTabView, resolveTheme, toggleTheme } from '@/lib/theme';
 import type { ImportState } from '@/lib/types';
 import { copyText, fmt, messageOf, tabFromHash, TONE, errorDetail, type SetStatus, type TabName, type Tone } from './shared';
@@ -84,6 +84,12 @@ export function App() {
   const tabRef = useRef(tab);
   tabRef.current = tab;
   const importer = useImportCandidate();
+  /** The file in the Import tab; the Backups search covers it too. */
+  const { candidate } = importer;
+  const loadedFile = useMemo(
+    () => (candidate?.fileName ? { data: candidate.data, name: candidate.fileName } : null),
+    [candidate],
+  );
 
   /** Outcomes are toasts; ongoing progress lives in the progress strip instead. */
   const setStatus: SetStatus = useCallback((text, tone) => {
@@ -298,6 +304,12 @@ export function App() {
                 browser={browser}
                 restoreRunning={running}
                 setStatus={setStatus}
+                loadedFile={loadedFile}
+                onRestoreSearch={(data, count) => {
+                  importer.reset();
+                  importer.accept({ data, label: t('formatSearchResults'), warnings: undefined, message: tp('fileLoadedSearch', count, fmt(count)) });
+                  setTab('import');
+                }}
                 onRestore={({ data, warnings, date }) => {
                   importer.reset();
                   importer.accept({ data, label: t('formatSnapshot'), warnings, message: t('fileLoadedSnapshot', date) });

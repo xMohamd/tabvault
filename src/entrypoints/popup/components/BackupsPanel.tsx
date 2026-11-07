@@ -38,6 +38,9 @@ import {
 } from '../shared';
 import { SettingsSection, SwitchRow } from './settings';
 import { SnapshotCompare } from './SnapshotCompare';
+import { BackupSearch, type LoadedFile } from './BackupSearch';
+
+const SEARCH_DEBOUNCE_MS = 250;
 
 const REASON_BADGE_KEYS: Record<string, string> = {
   scheduled: 'reasonScheduled',
@@ -94,9 +97,16 @@ interface Props {
   setStatus: SetStatus;
   /** A snapshot was loaded and should be offered in the Import tab. */
   onRestore: (args: { data: Backup; warnings: NormalizeWarnings; date: string }) => void;
+  /** The file loaded in the Import tab, searched along with the snapshots. */
+  loadedFile: LoadedFile | null;
+  /** Results picked in a search were ticked and should be offered in the Import tab. */
+  onRestoreSearch: (data: Backup, count: number) => void;
 }
 
-export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRestore }: Props) {
+export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRestore, loadedFile, onRestoreSearch }: Props) {
+  /** What is typed, and the trimmed value the search runs for after a short pause. */
+  const [searchText, setSearchText] = useState('');
+  const [query, setQuery] = useState('');
   const [form, setForm] = useState<Form>(DEFAULT_FORM);
   /** The settings the background last confirmed. */
   const saved = useRef<Form>(DEFAULT_FORM);
@@ -268,11 +278,51 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
     stopSelecting();
   }
 
+  useEffect(() => {
+    const next = searchText.trim();
+    if (!next) {
+      setQuery('');
+      return;
+    }
+    const timer = setTimeout(() => setQuery(next), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchText]);
+
+  const searching = searchText.trim() !== '' && !comparison;
   const count = snapshots?.length ?? 0;
   const keepSummary = parseKeep(form.keep) ?? Number(saved.current.keep);
 
   return (
     <div id="backups-panel" className="flex min-h-0 flex-1 flex-col">
+      {!comparison && (
+        <div className="px-4 pt-2 pb-1">
+          <Input
+            type="search"
+            id="backups-search"
+            aria-label={t('searchBackupsLabel')}
+            placeholder={t('searchBackupsLabel')}
+            autoComplete="off"
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape' && searchText) {
+                event.preventDefault();
+                setSearchText('');
+              }
+            }}
+          />
+        </div>
+      )}
+      {searching && query ? (
+        <BackupSearch query={query} loadedFile={loadedFile} restoreRunning={restoreRunning} setStatus={setStatus} onRestore={onRestoreSearch} />
+      ) : searching ? (
+        <div id="search-loading" className="flex flex-col gap-2 px-4 pt-2" aria-busy="true">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      ) : (
+      <>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-2 pb-4">
         {comparison ? (
           <SnapshotCompare from={comparison.from} to={comparison.to} diff={comparison.diff} onBack={closeComparison} />
@@ -439,6 +489,8 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
             {backingUp ? t('backupNowWorking') : t('backupNow')}
           </Button>
         </div>
+      )}
+      </>
       )}
     </div>
   );

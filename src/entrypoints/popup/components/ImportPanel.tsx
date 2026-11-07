@@ -176,6 +176,7 @@ export function ImportPanel(props: PanelProps) {
       accept({
         data: parsed.data,
         label: labelKey ? t(labelKey) : parsed.label,
+        fileName: filename,
         warnings: collectWarnings(text, parsed),
         message: t('fileLoaded', filename),
       });

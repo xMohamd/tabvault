@@ -12,12 +12,15 @@ export interface Candidate {
   hasTabs: boolean;
   hasBookmarks: boolean;
   label: string;
+  /** File name when the backup came from a file (snapshots and search results have none). */
+  fileName?: string;
   warnings: NormalizeWarnings | undefined;
 }
 
 export interface AcceptArgs {
   data: Backup;
   label: string;
+  fileName?: string;
   warnings: NormalizeWarnings | undefined;
   message: string;
 }
@@ -48,7 +51,7 @@ export function useImportCandidate() {
   }, []);
 
   /** Makes a normalized backup the import candidate, exactly as if it had been chosen as a file. */
-  const accept = useCallback(({ data, label, warnings, message }: AcceptArgs) => {
+  const accept = useCallback(({ data, label, fileName, warnings, message }: AcceptArgs) => {
     const hasTabs = countTabs(data) > 0;
     const hasBookmarks = countBookmarks(data.bookmarks) > 0;
     if (!hasTabs && !hasBookmarks) {
@@ -57,7 +60,7 @@ export function useImportCandidate() {
     }
     seq.current += 1;
     setLocked(null);
-    setCandidate({ id: seq.current, data, hasTabs, hasBookmarks, label, warnings });
+    setCandidate({ id: seq.current, data, hasTabs, hasBookmarks, label, ...(fileName ? { fileName } : {}), warnings });
     setFileInfo({ text: message, tone: TONE.success });
   }, []);
 
