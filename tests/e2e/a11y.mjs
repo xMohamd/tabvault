@@ -299,6 +299,34 @@ async function popupBackupStates(p, theme) {
     await audit(p, 'Popup: Backups, delete armed', theme);
     await p.press('Tab');
     await compareStates(p, theme);
+    await searchStates(p, theme);
+}
+
+/** Search across backups: results, ticked results, a filter, nothing found; Escape returns to the list. */
+async function searchStates(p, theme) {
+    await p.type('#backups-search', 'cmp-');
+    await p.waitFor(`document.querySelectorAll('#search-results [role=checkbox]').length >= 2`);
+    check(`Search: input is a named search box [${theme}]`, await p.eval(`const i = document.getElementById('backups-search'); return i.type === 'search' && !!i.getAttribute('aria-label');`));
+    check(`Search: rows have named checkboxes and the list is named [${theme}]`, await p.eval(`const l = document.getElementById('search-results'); return !!l.getAttribute('aria-label') && [...l.querySelectorAll('[role=checkbox]')].every((c) => (c.getAttribute('aria-label') || '').length > 0);`));
+    await audit(p, 'Popup: Backups, search results', theme);
+    await p.click('#search-results li:nth-child(1) [role=checkbox]');
+    await p.click('#search-results li:nth-child(2) [role=checkbox]');
+    await p.waitFor(`!document.getElementById('btn-restore-selected').disabled`);
+    check(`Search: restore button is pinned and shows the count [${theme}]`, await p.eval(`const b = document.getElementById('btn-restore-selected'); const r = b.getBoundingClientRect(); return /\\b2\\b/.test(b.textContent) && r.bottom <= innerHeight + 1 && r.top >= 0;`));
+    await audit(p, 'Popup: Backups, search results with two selected', theme);
+    await p.hover('#search-results li:nth-child(1) button:not([role=checkbox])');
+    await p.waitFor(`document.querySelector('[data-slot=tooltip-content]')`);
+    await audit(p, 'Popup: Backups, search result sources tooltip', theme);
+    await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 500 }, p.sessionId);
+    await p.click('#search-filter [data-state]:nth-child(2)');
+    await audit(p, 'Popup: Backups, search results filtered to tabs', theme);
+    await p.type('#backups-search', 'zzzz-no-such-page');
+    await p.waitFor(`document.getElementById('search-empty')`);
+    await audit(p, 'Popup: Backups, search without matches', theme);
+    await p.eval(`document.getElementById('backups-search').focus();`);
+    await p.press('Escape');
+    await p.waitFor(`document.getElementById('snapshot-list') && !document.getElementById('search-empty')`);
+    check(`Search: Escape clears the box and shows the snapshot list again [${theme}]`, await p.eval(`return document.getElementById('backups-search').value === '';`));
 }
 
 /** Two snapshots that differ in one tab each way, so the comparison has an added and a removed list. */

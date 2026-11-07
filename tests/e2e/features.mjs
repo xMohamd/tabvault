@@ -185,6 +185,65 @@ if (backupFile) {
     ok(parsed.schemaVersion === '1.1' && parsed.windows.length >= 1, 'backup file is a valid v1.1 backup');
 }
 
+// --- 5. Search across backups, select results, restore the selection -----------------------
+// Two snapshots with different tabs; one page ("srch-shared") is open in both.
+const openPage = (name) => evaluate(`return (await chrome.tabs.create({ url: '${siteBase}/${name}.html', active: false })).id;`);
+const closeTabs = (ids) => evaluate(`await chrome.tabs.remove(${JSON.stringify(ids)}); return true;`);
+const sharedId = await openPage('srch-shared');
+const aId = await openPage('srch-a');
+await sleep(1200);
+const snapA = await send({ type: 'SNAPSHOT_CREATE' });
+await closeTabs([aId]);
+const bId = await openPage('srch-b');
+await sleep(1200);
+const snapB = await send({ type: 'SNAPSHOT_CREATE' });
+ok(snapA.ok && snapB.ok && snapA.snapshot && snapB.snapshot, 'two snapshots created for the search');
+
+const found = await send({ type: 'SEARCH_SNAPSHOTS', query: 'srch-' });
+ok(found.ok && found.searched >= 2, `SEARCH_SNAPSHOTS searched ${found.searched} backups`);
+const sharedHits = (found.results || []).filter((r) => r.kind === 'tab' && r.url.endsWith('/srch-shared.html'));
+ok(sharedHits.length === 1 && sharedHits[0].sources.length === 2, `shared page found once with 2 sources: ${JSON.stringify(sharedHits.map((r) => r.sources.length))}`);
+ok(sharedHits[0]?.sources[0]?.id === snapB.snapshot.id, 'newest source listed first');
+const urls = (found.results || []).filter((r) => r.kind === 'tab').map((r) => r.url.split('/').pop()).sort();
+ok(JSON.stringify(urls) === JSON.stringify(['srch-a.html', 'srch-b.html', 'srch-shared.html']), `search results: ${urls}`);
+ok((await send({ type: 'SEARCH_SNAPSHOTS', query: '   ' })).total === 0, 'blank query finds nothing');
+
+// Close the pages so the restore visibly reopens them.
+await closeTabs([sharedId, bId]);
+await sleep(500);
+await evaluate(`location.hash = '#backups'; return true;`);
+await poll(() => evaluate(`return !!document.getElementById('backups-search');`));
+ok(await evaluate(`return document.getElementById('backups-search').type === 'search';`), 'Backups tab has the search box (type=search)');
+await typeInto('#backups-search', 'srch-');
+const rows = await poll(() => evaluate(`const n = document.querySelectorAll('#search-results [role=checkbox]').length; return n >= 3 ? n : 0;`), 10000);
+ok(rows >= 3, `results list shows ${rows} rows`);
+ok(await evaluate(`return document.getElementById('btn-restore-selected')?.disabled === true;`), 'restore button disabled with nothing selected');
+const ticked = await evaluate(`
+  const boxes = [...document.querySelectorAll('#search-results [role=checkbox]')];
+  const picks = boxes.filter((b) => /srch-(a|b)\\.html$/.test(b.getAttribute('aria-label') || ''));
+  picks.forEach((b) => b.click());
+  return picks.length;`);
+ok(ticked === 2, `ticked srch-a and srch-b (${ticked})`);
+const label = await poll(() => evaluate(`const b = document.getElementById('btn-restore-selected'); return b && !b.disabled ? b.textContent.trim() : null;`));
+ok(/\b2\b/.test(label ?? ''), `restore button: "${label}"`);
+await evaluate(`document.getElementById('btn-restore-selected').click(); return true;`);
+const tabsStat = await poll(() => evaluate(`return document.getElementById('summary-stats')?.innerText.replace(/\\s+/g, ' ') || null;`), 10000);
+ok(/^2\s*Tabs\s*1\s*Windows?\s*0\s*Groups/i.test(tabsStat ?? ""), `Import summary after "Restore selected": ${tabsStat}`);
+ok(await evaluate(`return location.hash === '#import' || !!document.getElementById('import-summary');`), 'switched to the Import tab');
+
+const beforeRestore = await evaluate(`return (await chrome.tabs.query({})).length;`);
+await evaluate(`const b = document.getElementById('btn-import'); b.click(); return true;`);
+const done = await waitImport();
+ok(done?.status === 'done', `search restore status ${done?.status} ${done?.error ?? ''}`);
+const reopened = await poll(async () => {
+    const all = await evaluate(`return (await chrome.tabs.query({})).map((t) => decodeURIComponent((t.url || '') + ' ' + (t.pendingUrl || '')));`);
+    const hit = ['srch-a.html', 'srch-b.html'].filter((n) => all.some((u) => u.includes(n)));
+    return hit.length === 2 ? hit : null;
+}, 10000);
+ok(!!reopened, `both selected tabs were opened (${beforeRestore} tabs before)`);
+const unselected = await evaluate(`return (await chrome.tabs.query({})).some((t) => decodeURIComponent((t.url || '') + (t.pendingUrl || '')).includes('srch-shared.html'));`);
+ok(!unselected, 'the page that was not selected was not reopened');
+
 const errors = (await send({ type: 'DIAGNOSTICS' })).report.logs.filter((l) => l.level === 'ERROR');
 ok(errors.length === 0, `no worker errors ${JSON.stringify(errors).slice(0, 300)}`);
 

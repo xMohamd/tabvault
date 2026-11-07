@@ -52,6 +52,11 @@ APIs at runtime, not guessed from the browser name.
   (chrome://extensions/shortcuts, or Firefox's Manage Extension Shortcuts). Alt+Shift
   combinations are avoided on purpose: many systems use Alt+Shift to switch keyboard layout.
 - **Compare two snapshots**: tabs, groups and bookmarks added or removed.
+- **Search all backups**: the search box on the Backups tab looks through every snapshot (and
+  the file loaded on the Import tab) for tabs and bookmarks. Each page is listed once with the
+  backups it appears in; tick what you want and "Restore N selected" opens just those in the
+  Import tab with the usual restore options (tabs keep their group; bookmarks go into a
+  "Restored from search" folder).
 - **Bookmarklets** (`javascript:` bookmarks) have their own option under Bookmarks on both
   Export and Import, on by default. The import summary says how many a file contains,
   since a bookmarklet runs code on the page you click it on. Restored tabs never open
