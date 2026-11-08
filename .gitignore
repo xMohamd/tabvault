@@ -25,5 +25,8 @@ web-ext.config.ts
 *.sln
 *.sw?
 
+# Vitest output
+.vitest/
+
 # Local helper scripts (not part of the extension)
 scripts/
