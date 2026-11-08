@@ -322,6 +322,38 @@ ok(!urlsNow.some((u) => u.includes('pick-tab-2.html')), 'the other tab was not o
 const marks = await evaluate(`return { one: (await chrome.bookmarks.search({ url: '${siteBase}/pick-mark-1.html' })).length, two: (await chrome.bookmarks.search({ url: '${siteBase}/pick-mark-2.html' })).length };`);
 ok(marks.one === 1 && marks.two === 0, `the ticked bookmark was created, the other was not: ${JSON.stringify(marks)}`);
 
+// --- Finished restore: shown once, no repeated notification, Done is remembered -------------
+{
+    // Make sure there is a finished restore to come back to.
+    const last = (await send({ type: 'GET_STATE' })).importState;
+    if (!['done', 'cancelled', 'error'].includes(last.status)) {
+        await send({ type: 'IMPORT_START', data: { schemaVersion: '1.1', windows: [{ ungroupedTabs: [{ url: `${siteBase}/finish.html`, title: 'f' }], groups: [] }], bookmarks: [] }, options: { importTabs: true, importBookmarks: false } });
+        await waitImport();
+    }
+    const openPage = async () => {
+        const { result: { targetId: tid } } = await cdp('Target.createTarget', { url: `chrome-extension://${extId}/popup.html?view=tab#import` });
+        const { result: { sessionId: sid } } = await cdp('Target.attachToTarget', { targetId: tid, flatten: true });
+        await sleep(1500);
+        const evalIn = async (expr) => (await cdp('Runtime.evaluate', { expression: `(async () => { ${expr} })()`, awaitPromise: true, returnByValue: true }, sid)).result?.result?.value;
+        return { tid, evalIn };
+    };
+    const toastCount = (evalIn) => evalIn(`return document.querySelectorAll('[data-sonner-toast]').length;`);
+
+    let page = await openPage();
+    ok(await page.evalIn(`return !!document.getElementById('results-card');`), 'reopening shows the results of the finished restore');
+    ok((await toastCount(page.evalIn)) === 0, 'no notification for an old result when the page opens');
+    await page.evalIn(`document.getElementById('btn-results-dismiss').click(); return true;`);
+    await sleep(500);
+    ok((await send({ type: 'GET_STATE' })).importState.status === 'idle', 'Done is saved in the background (state idle)');
+    await cdp('Target.closeTarget', { targetId: page.tid });
+
+    page = await openPage();
+    ok(!(await page.evalIn(`return !!document.getElementById('results-card');`)), 'after Done, reopening shows no results page');
+    ok(await page.evalIn(`return !!document.getElementById('import-empty');`), 'the Import tab is back to its start');
+    ok((await toastCount(page.evalIn)) === 0, 'and no notification');
+    await cdp('Target.closeTarget', { targetId: page.tid });
+}
+
 const errors = (await send({ type: 'DIAGNOSTICS' })).report.logs.filter((l) => l.level === 'ERROR');
 ok(errors.length === 0, `no worker errors ${JSON.stringify(errors).slice(0, 300)}`);
 
