@@ -21,6 +21,15 @@ export const CONFIRM_RESET_MS = 4000;
 const BYTES_PER_KB = 1024;
 const BYTES_PER_MB = BYTES_PER_KB * 1024;
 
+/** Message key of the label for each snapshot reason. */
+export const REASON_BADGE_KEYS: Record<string, string> = {
+  scheduled: 'reasonScheduled',
+  manual: 'reasonManual',
+  quick: 'reasonQuick',
+  'pre-replace': 'reasonPreReplace',
+  'pre-import': 'reasonPreImport',
+};
+
 export const cx = (...parts: Array<string | false | null | undefined>): string => parts.filter(Boolean).join(' ');
 
 // --- Formatting ---

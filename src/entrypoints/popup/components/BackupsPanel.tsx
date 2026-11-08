@@ -3,8 +3,8 @@
  * settings in a collapsed section that saves as you change it, and
  * "Back up now" pinned at the bottom.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArchiveIcon, DownloadIcon, FileCheckIcon, GitCompareIcon, HistoryIcon, Trash2Icon } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArchiveIcon, DownloadIcon, FileCheckIcon, GitCompareIcon, HistoryIcon, SearchIcon, Trash2Icon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -19,6 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { send } from '@/lib/messaging';
 import { t } from '@/lib/i18n';
 import { BackupFormatError, normalizeBackup, type Backup, type NormalizeWarnings } from '@/lib/schema';
+import { FILE_SOURCE_ID, isInScope, resolveScope, type Scope } from '@/lib/search-scope';
 import { diffBackups, type BackupDiff } from '@/lib/snapshot-diff';
 import type { BrowserInfo } from '@/lib/browser-detect';
 import type { LastRun, ScheduleFrequency, ScheduleSettings, SnapshotMeta } from '@/lib/types';
@@ -32,6 +33,7 @@ import {
   formatSize,
   KEEP_MAX,
   KEEP_MIN,
+  REASON_BADGE_KEYS,
   TONE,
   type Message,
   type SetStatus,
@@ -39,16 +41,10 @@ import {
 import { SettingsSection, SwitchRow } from './settings';
 import { SnapshotCompare } from './SnapshotCompare';
 import { BackupSearch, type LoadedFile } from './BackupSearch';
+import { SearchScopeMenu } from './SearchScopeMenu';
 
 const SEARCH_DEBOUNCE_MS = 250;
 
-const REASON_BADGE_KEYS: Record<string, string> = {
-  scheduled: 'reasonScheduled',
-  manual: 'reasonManual',
-  quick: 'reasonQuick',
-  'pre-replace': 'reasonPreReplace',
-  'pre-import': 'reasonPreImport',
-};
 const SAFETY_REASONS = new Set(['pre-replace', 'pre-import']);
 const FREQUENCY_KEYS: Record<ScheduleFrequency, string> = {
   hourly: 'freqHourlyShort',
@@ -107,6 +103,9 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
   /** What is typed, and the trimmed value the search runs for after a short pause. */
   const [searchText, setSearchText] = useState('');
   const [query, setQuery] = useState('');
+  /** Backups the search covers: null = all of them (and the loaded file). Kept while the popup is open. */
+  const [chosenScope, setChosenScope] = useState<Scope>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<Form>(DEFAULT_FORM);
   /** The settings the background last confirmed. */
   const saved = useRef<Form>(DEFAULT_FORM);
@@ -290,13 +289,30 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
 
   const searching = searchText.trim() !== '' && !comparison;
   const count = snapshots?.length ?? 0;
+
+  // Newest first. A backup that was deleted, or a file that was unloaded, drops out of the choice by itself.
+  const scopeSnapshots = useMemo(() => [...(snapshots ?? [])].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)), [snapshots]);
+  const sourceIds = useMemo(() => [...scopeSnapshots.map((s) => s.id), ...(loadedFile ? [FILE_SOURCE_ID] : [])], [scopeSnapshots, loadedFile]);
+  const scope = useMemo(() => resolveScope(chosenScope, sourceIds), [chosenScope, sourceIds]);
+  const searchScope = useMemo(
+    () => ({
+      ids: scope === null ? undefined : scopeSnapshots.filter((s) => isInScope(scope, s.id)).map((s) => s.id),
+      file: isInScope(scope, FILE_SOURCE_ID),
+    }),
+    [scope, scopeSnapshots],
+  );
+  function searchOnlyIn(id: string) {
+    setChosenScope(new Set([id]));
+    searchInput.current?.focus();
+  }
   const keepSummary = parseKeep(form.keep) ?? Number(saved.current.keep);
 
   return (
     <div id="backups-panel" className="flex min-h-0 flex-1 flex-col">
       {!comparison && (
-        <div className="px-4 pt-2 pb-1">
+        <div className="flex items-center gap-2 px-4 pt-2 pb-1">
           <Input
+            ref={searchInput}
             type="search"
             id="backups-search"
             aria-label={t('searchBackupsLabel')}
@@ -311,10 +327,11 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
               }
             }}
           />
+          {sourceIds.length >= 2 && <SearchScopeMenu snapshots={scopeSnapshots} fileName={loadedFile?.name ?? null} scope={scope} onChange={setChosenScope} />}
         </div>
       )}
       {searching && query ? (
-        <BackupSearch query={query} loadedFile={loadedFile} restoreRunning={restoreRunning} setStatus={setStatus} onRestore={onRestoreSearch} />
+        <BackupSearch query={query} scope={searchScope} loadedFile={loadedFile} restoreRunning={restoreRunning} setStatus={setStatus} onRestore={onRestoreSearch} />
       ) : searching ? (
         <div id="search-loading" className="flex flex-col gap-2 px-4 pt-2" aria-busy="true">
           <Skeleton className="h-4 w-40" />
@@ -391,6 +408,7 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
                   selectDisabled={!selected.includes(meta.id) && selected.length >= 2}
                   onSelect={(checked) => toggleSelected(meta.id, checked)}
                   onRestore={(date) => void restoreSnapshot(meta, date)}
+                  onSearch={() => searchOnlyIn(meta.id)}
                   onDownload={() => void downloadSnapshot(meta)}
                   onDelete={() => void deleteSnapshot(meta)}
                 />
@@ -504,6 +522,7 @@ function SnapshotRow({
   selectDisabled,
   onSelect,
   onRestore,
+  onSearch,
   onDownload,
   onDelete,
 }: {
@@ -514,6 +533,7 @@ function SnapshotRow({
   selectDisabled: boolean;
   onSelect: (checked: boolean) => void;
   onRestore: (date: string) => void;
+  onSearch: () => void;
   onDownload: () => void;
   onDelete: () => void;
 }) {
@@ -585,6 +605,14 @@ function SnapshotRow({
           <Button variant="outline" size="sm" aria-label={t('snapshotRestoreLabel', date)} disabled={restoreDisabled} onClick={() => onRestore(date)}>
             {t('snapshotRestore')}
           </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon-sm" aria-label={t('snapshotSearchLabel', date)} onClick={onSearch}>
+                <SearchIcon />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t('snapshotSearch')}</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon-sm" aria-label={t('snapshotDownloadLabel', date)} onClick={onDownload}>

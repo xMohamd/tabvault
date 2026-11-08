@@ -1734,64 +1734,18 @@
     "description": "Switch (Firefox): restore each tab in its Firefox container."
   },
   "previewSearchPlaceholder": {
-    "message": "Search tabs by title or address",
-    "description": "Placeholder and accessible name of the search box above the backup preview."
+    "message": "Search this backup by title or address",
+    "description": "Placeholder and accessible name of the search box above the backup preview in the Import tab. It searches the tabs and bookmarks of the loaded backup; ticking results restores just those."
   },
-  "previewMatchCount_one": {
-    "message": "$COUNT$ matching tab",
-    "description": "Number of search results (singular).",
+  "searchNoMatchesFileHint": {
+    "message": "Nothing in this backup matches “$QUERY$”.",
+    "description": "Description of the empty state when searching the loaded backup in the Import tab. $QUERY$ is what the user typed.",
     "placeholders": {
-      "count": {
+      "query": {
         "content": "$1",
-        "example": "1"
+        "example": "github"
       }
     }
-  },
-  "previewMatchCount_other": {
-    "message": "$COUNT$ matching tabs",
-    "description": "Number of search results (plural).",
-    "placeholders": {
-      "count": {
-        "content": "$1",
-        "example": "12"
-      }
-    }
-  },
-  "previewNoMatches": {
-    "message": "No tabs match your search.",
-    "description": "Shown when the search finds nothing."
-  },
-  "previewSelectMatching": {
-    "message": "Select only matching",
-    "description": "Button: restore only the tabs found by the search."
-  },
-  "previewClearSearch": {
-    "message": "Clear",
-    "description": "Button: clear the search and the matching-only selection."
-  },
-  "previewRestoringMatching_one": {
-    "message": "Restoring $COUNT$ matching tab",
-    "description": "Line under the preview when only searched tabs are selected (singular).",
-    "placeholders": {
-      "count": {
-        "content": "$1",
-        "example": "1"
-      }
-    }
-  },
-  "previewRestoringMatching_other": {
-    "message": "Restoring $COUNT$ matching tabs",
-    "description": "Line under the preview when only searched tabs are selected (plural).",
-    "placeholders": {
-      "count": {
-        "content": "$1",
-        "example": "12"
-      }
-    }
-  },
-  "previewResultsLabel": {
-    "message": "Matching tabs",
-    "description": "Accessible name of the scrollable list of tabs that match the search."
   },
   "shortcutsMenu": {
     "message": "Keyboard shortcuts",
@@ -1834,8 +1788,8 @@
     "description": "Accessible name of a dialog close button."
   },
   "searchBackupsLabel": {
-    "message": "Search all backups",
-    "description": "Placeholder and accessible name of the search box on the Backups tab. It searches every saved snapshot (and the file loaded in the Import tab) for tabs and bookmarks."
+    "message": "Search backups",
+    "description": "Placeholder and accessible name of the search box on the Backups tab. It searches the chosen saved snapshots (all by default, see the Search in menu next to it) and the file loaded in the Import tab for tabs and bookmarks."
   },
   "searchResultsLabel": {
     "message": "Search results",
@@ -1892,6 +1846,102 @@
       "backups": {
         "content": "$2",
         "example": "7 backups"
+      }
+    }
+  },
+  "searchSummaryAll": {
+    "message": "$RESULTS$ in all $COUNT$ backups",
+    "description": "Summary line above the search results when every backup was searched (two or more). $RESULTS$ is for example '12 results' and $COUNT$ is the number of backups.",
+    "placeholders": {
+      "results": {
+        "content": "$1",
+        "example": "12 results"
+      },
+      "count": {
+        "content": "$2",
+        "example": "7"
+      }
+    }
+  },
+  "searchSummaryPart": {
+    "message": "$RESULTS$ in $SEARCHED$ of $AVAILABLE$ backups",
+    "description": "Summary line above the search results when only some backups were searched. $RESULTS$ is for example '12 results', $SEARCHED$ is how many backups were searched and $AVAILABLE$ is how many there are.",
+    "placeholders": {
+      "results": {
+        "content": "$1",
+        "example": "12 results"
+      },
+      "searched": {
+        "content": "$2",
+        "example": "3"
+      },
+      "available": {
+        "content": "$3",
+        "example": "7"
+      }
+    }
+  },
+  "searchScopeLabel": {
+    "message": "Search in",
+    "description": "Heading of the menu that chooses which backups the Backups search covers."
+  },
+  "searchScopeAll": {
+    "message": "All backups",
+    "description": "Search scope: every saved backup. Shown on the button that opens the Search in menu, and as the first item of that menu, which ticks or unticks all backups."
+  },
+  "searchScopeSome": {
+    "message": "$COUNT$ of $TOTAL$ backups",
+    "description": "Search scope button text when only some backups are chosen. $COUNT$ is how many are chosen and $TOTAL$ how many there are.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      },
+      "total": {
+        "content": "$2",
+        "example": "12"
+      }
+    }
+  },
+  "searchScopeFileOnly": {
+    "message": "Loaded file only",
+    "description": "Search scope button text when no saved backup is chosen and only the file loaded in the Import tab is searched."
+  },
+  "searchScopeWithFile": {
+    "message": "$SCOPE$ + loaded file",
+    "description": "Search scope button text when the file loaded in the Import tab is searched as well. $SCOPE$ is for example 'All backups' or '3 of 12 backups'.",
+    "placeholders": {
+      "scope": {
+        "content": "$1",
+        "example": "All backups"
+      }
+    }
+  },
+  "searchScopeButtonLabel": {
+    "message": "Search in: $SCOPE$",
+    "description": "Accessible name of the button that opens the Search in menu. $SCOPE$ is the visible text of the button, for example 'All backups'.",
+    "placeholders": {
+      "scope": {
+        "content": "$1",
+        "example": "3 of 12 backups"
+      }
+    }
+  },
+  "searchScopeLastHint": {
+    "message": "At least one backup stays selected.",
+    "description": "Hint at the bottom of the Search in menu while only one backup is ticked, which therefore cannot be unticked."
+  },
+  "snapshotSearch": {
+    "message": "Search in this backup",
+    "description": "Tooltip of the button on a backup in the list that searches only that backup."
+  },
+  "snapshotSearchLabel": {
+    "message": "Search in the backup from $DATE$",
+    "description": "Accessible name of the button on a backup in the list that searches only that backup. $DATE$ is the date and time of the backup.",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "Nov 8, 2026, 10:00 AM"
       }
     }
   },
@@ -2035,7 +2085,7 @@
   },
   "searchRestoreSelected": {
     "message": "Restore $COUNT$ selected",
-    "description": "Button: load the ticked search results into the Import tab for restoring. $COUNT$ is how many are ticked.",
+    "description": "Main button while search results are ticked: on the Backups tab it loads them into the Import tab, in the Import tab it restores just them. $COUNT$ is how many are ticked.",
     "placeholders": {
       "count": {
         "content": "$1",
