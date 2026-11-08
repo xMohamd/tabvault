@@ -61,6 +61,13 @@ const handlers: Handlers = {
     }
     return { ok: true };
   },
+  IMPORT_DISMISS: async () => {
+    // Only a finished restore can be dismissed; a running one keeps reporting progress.
+    if (importState.status === 'done' || importState.status === 'cancelled' || importState.status === 'error') {
+      setImportState({ status: 'idle', phase: undefined, current: 0, total: 0, message: '', result: undefined, error: undefined });
+    }
+    return { ok: true };
+  },
   DIAGNOSTICS: async () => ({ ok: true, report: await buildDiagnostics() }),
   SNAPSHOTS_LIST: async () => ({
     ok: true,

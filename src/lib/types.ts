@@ -199,6 +199,8 @@ export interface Protocol {
   EXPORT_PREVIEW: { req: { options: ExportOptions }; res: Reply<{ stats: ExportStats }> };
   IMPORT_START: { req: { data: Backup; options: ImportOptions }; res: Reply };
   IMPORT_CANCEL: { req: object; res: Reply };
+  /** The user closed the results of a finished restore: forget it (persisted), so it doesn't come back. */
+  IMPORT_DISMISS: { req: object; res: Reply };
   DIAGNOSTICS: { req: object; res: Reply<{ report: DiagnosticsReport }> };
   SNAPSHOTS_LIST: {
     req: object;

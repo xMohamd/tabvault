@@ -154,6 +154,19 @@ describe('service worker messaging', () => {
         assert.ok(list.snapshots.some((s) => s.reason === 'pre-replace'));
     });
 
+    it('IMPORT_DISMISS forgets a finished restore, also for the next popup (persisted)', async () => {
+        assert.equal((await call({ type: 'GET_STATE' })).importState.status, 'done');
+        const res = await call({ type: 'IMPORT_DISMISS' });
+        assert.ok(res.ok);
+        const st = (await call({ type: 'GET_STATE' })).importState;
+        assert.equal(st.status, 'idle');
+        assert.equal(st.result, undefined);
+        // What a restarted background (or the next popup) reads back:
+        await new Promise((r) => setTimeout(r, 10));
+        const saved = fb.storage.session.importState ?? fb.storage.local.importState;
+        assert.equal(saved?.status, 'idle', 'the dismissal is saved');
+    });
+
     it('ignores messages from other extensions', async () => {
         const res = await new Promise((r) => {
             const ret = handler()({ type: 'GET_STATE' }, { id: 'evil' }, r);
