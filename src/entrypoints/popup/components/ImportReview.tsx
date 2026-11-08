@@ -3,7 +3,7 @@
  * the restore options, and the main action pinned at the bottom.
  * Keyed by candidate id, so a new backup starts with fresh selections.
  */
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ArchiveRestoreIcon, InfoIcon } from 'lucide-react';
 import {
   AlertDialog,
@@ -25,7 +25,8 @@ import { send } from '@/lib/messaging';
 import { t, tp } from '@/lib/i18n';
 import { countBookmarklets, countBookmarks, countGroups, countTabs } from '@/lib/schema';
 import type { BrowserInfo } from '@/lib/browser-detect';
-import type { BookmarkStrategy, ImportOptions, RestoreMode } from '@/lib/types';
+import { searchBackups } from '@/lib/snapshot-search';
+import type { BookmarkStrategy, ImportOptions, RestoreMode, SearchResult } from '@/lib/types';
 import { errorDetail, fmt, formatDate, MANY_TABS_THRESHOLD, TONE, type SetStatus } from '../shared';
 import type { Candidate, ImportCandidateApi } from '../hooks/useImportCandidate';
 import {
@@ -34,13 +35,16 @@ import {
   selectedData,
   selectedTabCount,
   selectionForKeys,
-  type OnlyUrls,
   type WindowSelection,
 } from './PreviewTree';
 import { useFocusOnMount } from './ImportProgress';
+import { ImportSearch } from './ImportSearch';
 import { SettingsSection, SwitchRow } from './settings';
 import { ToneAlert } from './ToneAlert';
 
+
+/** Most matches listed when searching the loaded file. */
+const SEARCH_LIMIT = 100_000;
 
 /** Options that survive loading another backup. */
 export interface RestoreSettings {
@@ -116,9 +120,9 @@ export function ImportReview(props: Props) {
   const { candidate, browser, running, settings, fileInfo, importMessage, setImportMessage, setStatus } = props;
   const { data, hasTabs, hasBookmarks } = candidate;
   const [selection, setSelection] = useState<WindowSelection[]>(() => defaultSelection(data));
-  // Tab-level filter from the search ("Select only matching"), and the ticks to bring back when it is cleared.
-  const [onlyUrls, setOnlyUrls] = useState<OnlyUrls | null>(null);
-  const [selectionBeforeFilter, setSelectionBeforeFilter] = useState<WindowSelection[] | null>(null);
+  // Search inside the file. Ticked results (kept while the query is refined) are all that gets restored.
+  const [query, setQueryText] = useState('');
+  const [picked, setPicked] = useState<Map<string, SearchResult>>(new Map());
   const bookmarksSupported = browser.features?.bookmarks !== false;
   const [importTabs, setImportTabs] = useState(hasTabs);
   const [importBookmarks, setImportBookmarks] = useState(hasBookmarks && bookmarksSupported);
@@ -137,29 +141,41 @@ export function ImportReview(props: Props) {
   const showContainers = browser.key === 'firefox' && hasContainers;
   const tabsOn = hasTabs && importTabs;
   const bookmarksOn = hasBookmarks && bookmarksSupported && importBookmarks;
-  const selectedTabs = selectedTabCount(data, selection, onlyUrls ?? undefined);
-  const restoringTabs = tabsOn ? selectedTabs : 0;
+
+  // Search: the file's tabs and bookmarks, limited to the kinds the "What to restore" switches leave on.
+  const searchable = hasTabs || (hasBookmarks && bookmarksSupported);
+  const searching = searchable && query.trim() !== '';
+  const results = useMemo(
+    () =>
+      searching
+        ? searchBackups([{ id: 'file', label: '', date: data.exportedAt ?? null, data }], query, {
+            limit: SEARCH_LIMIT,
+            kinds: [...(tabsOn ? (['tab'] as const) : []), ...(bookmarksOn ? (['bookmark'] as const) : [])],
+          }).results
+        : [],
+    [searching, data, query, tabsOn, bookmarksOn],
+  );
+  // Ticks of a kind that was switched off are ignored.
+  const pickedList = useMemo(() => [...picked.values()].filter((r) => (r.kind === 'tab' ? tabsOn : bookmarksOn)), [picked, tabsOn, bookmarksOn]);
+  const pickedTabKeys = useMemo(() => new Set(pickedList.filter((r) => r.kind === 'tab').map((r) => r.key)), [pickedList]);
+  const pickedBookmarkKeys = useMemo(() => new Set(pickedList.filter((r) => r.kind === 'bookmark').map((r) => r.key)), [pickedList]);
+  /** Ticked results replace the tree-based selection; windows and groups follow from the ticked tabs. */
+  const picking = searching && pickedList.length > 0;
+  const pickedSelection = useMemo(() => selectionForKeys(data, pickedTabKeys), [data, pickedTabKeys]);
+
+  const tabsActive = picking ? pickedTabKeys.size > 0 : tabsOn;
+  const bookmarksActive = picking ? pickedBookmarkKeys.size > 0 : bookmarksOn;
+  const selectedTabs = picking ? selectedTabCount(data, pickedSelection, pickedTabKeys) : selectedTabCount(data, selection);
+  const restoringTabs = tabsActive ? selectedTabs : 0;
   const replacing = settings.bmStrategy === 'replace';
-  const many = tabsOn && selectedTabs > MANY_TABS_THRESHOLD;
-  const nothingToRestore = !((tabsOn && selectedTabs > 0) || bookmarksOn);
+  const many = tabsActive && selectedTabs > MANY_TABS_THRESHOLD;
+  const nothingToRestore = searching ? !picking : !((tabsOn && selectedTabs > 0) || bookmarksOn);
   const startDisabled = running || starting || nothingToRestore;
 
-  const changeSelection = (next: WindowSelection[]) => {
-    // A manual change replaces the search filter and keeps what the user just did.
-    setSelection(next);
-    setOnlyUrls(null);
-    setSelectionBeforeFilter(null);
-  };
-  const selectOnly = (keys: OnlyUrls) => {
-    setSelectionBeforeFilter((before) => before ?? selection);
-    setSelection(selectionForKeys(data, keys));
-    setOnlyUrls(keys);
-  };
-  const clearOnly = () => {
-    if (!onlyUrls) return;
-    if (selectionBeforeFilter) setSelection(selectionBeforeFilter);
-    setOnlyUrls(null);
-    setSelectionBeforeFilter(null);
+  /** Clearing the search also clears the ticks: back to the normal restore. */
+  const changeQuery = (next: string) => {
+    setQueryText(next);
+    if (next.trim() === '') setPicked(new Map());
   };
 
   const patch = (next: Partial<RestoreSettings>) => props.setSettings({ ...settings, ...next });
@@ -176,7 +192,7 @@ export function ImportReview(props: Props) {
 
   function handleStartClick() {
     if (startDisabled) return;
-    if (bookmarksOn && replacing) {
+    if (bookmarksActive && replacing) {
       setConfirming(true);
       return;
     }
@@ -185,8 +201,8 @@ export function ImportReview(props: Props) {
 
   async function startImport() {
     const options: ImportOptions = {
-      importTabs: tabsOn,
-      importBookmarks: bookmarksOn,
+      importTabs: tabsActive,
+      importBookmarks: bookmarksActive,
       bookmarkStrategy: settings.bmStrategy,
       skipDuplicateBookmarks: settings.skipDupes && !replacing,
       importBookmarklets,
@@ -201,7 +217,8 @@ export function ImportReview(props: Props) {
     };
     setImportMessage(null);
     setStarting(true);
-    const response = await send('IMPORT_START', { data: selectedData(data, selection, onlyUrls ?? undefined), options });
+    const chosen = picking ? selectedData(data, pickedSelection, pickedTabKeys, pickedBookmarkKeys) : selectedData(data, selection);
+    const response = await send('IMPORT_START', { data: chosen, options });
     setStarting(false);
     if (!response.ok) {
       const message = t('importStartFailed', errorDetail(response));
@@ -265,14 +282,18 @@ export function ImportReview(props: Props) {
           </div>
         )}
 
-        {tabsOn && <PreviewCard
-            data={data}
-            selection={selection}
-            onChange={changeSelection}
-            onlyUrls={onlyUrls}
-            onSelectOnly={selectOnly}
-            onClearOnly={clearOnly}
-          />}
+        {searchable && (
+          <ImportSearch
+            query={query}
+            onQueryChange={changeQuery}
+            results={results}
+            picked={picked}
+            onPickedChange={setPicked}
+            showFilter={tabsOn && bookmarksOn}
+          />
+        )}
+
+        {tabsOn && !searching && <PreviewCard data={data} selection={selection} onChange={setSelection} />}
 
         {(hasTabs || (hasBookmarks && bookmarksSupported)) && (
           <FieldSet id="import-options">
@@ -419,14 +440,14 @@ export function ImportReview(props: Props) {
       </div>
 
       <div className="flex flex-col gap-2 border-t bg-background px-4 py-3">
-        {nothingToRestore && (
+        {nothingToRestore && !searching && (
           <p id="import-empty-hint" role="status" className="text-sm text-warning">
             {t('importNothingSelected')}
           </p>
         )}
         <Button ref={importButton} id="btn-import" size="lg" className="w-full" disabled={startDisabled} onClick={handleStartClick}>
           {starting ? <Spinner data-icon="inline-start" /> : <ArchiveRestoreIcon data-icon="inline-start" />}
-          {buttonLabel(restoringTabs, bookmarksOn)}
+          {searching ? (picking ? t('searchRestoreSelected', fmt(pickedList.length)) : t('searchSelectToRestore')) : buttonLabel(restoringTabs, bookmarksOn)}
         </Button>
       </div>
 

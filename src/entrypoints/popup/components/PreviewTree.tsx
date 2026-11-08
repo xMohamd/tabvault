@@ -1,10 +1,8 @@
-import { useMemo, useState } from 'react';
 import { t, tp } from '@/lib/i18n';
-import { countWindowTabs, selectedByDefault, type Backup, type BackupTab, type BackupWindow } from '@/lib/schema';
+import { countWindowTabs, selectedByDefault, type Backup, type BackupTab, type BackupWindow, type BookmarkNode } from '@/lib/schema';
 import { dedupKey } from '@/lib/url-utils';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -23,11 +21,26 @@ export const defaultSelection = (data: Backup): WindowSelection[] =>
     return { ungrouped: on, groups: win.groups.map(() => on) };
   });
 
-/** Tab-level filter: only tabs whose dedupKey is in the set (the result of "Select only matching"). */
+/** Item-level filter: only tabs / bookmarks whose dedupKey is in the set (the ticked search results). */
 export type OnlyUrls = ReadonlySet<string>;
 
 const keep = (tabs: BackupTab[], only?: OnlyUrls): BackupTab[] =>
   only ? tabs.filter((tab) => only.has(dedupKey(tab.url))) : tabs;
+
+/**
+ * The bookmark tree reduced to the bookmarks whose dedupKey is in `only`, keeping the folders that lead to
+ * them. Folders left empty are dropped, except the top-level role folders (Bookmarks bar, Other...), which
+ * the importer maps by role.
+ */
+export function pruneBookmarks(nodes: BookmarkNode[], only: OnlyUrls): BookmarkNode[] {
+  const prune = (node: BookmarkNode, depth: number): BookmarkNode | null => {
+    if (node.url !== undefined) return only.has(dedupKey(node.url)) ? node : null;
+    const children = (node.children ?? []).map((child) => prune(child, depth + 1)).filter((child): child is BookmarkNode => child !== null);
+    if (children.length === 0 && !(depth === 0 && node.folderType)) return null;
+    return { ...node, children };
+  };
+  return nodes.map((node) => prune(node, 0)).filter((node): node is BookmarkNode => node !== null);
+}
 
 export function selectedTabCount(data: Backup, selection: WindowSelection[], only?: OnlyUrls): number {
   return data.windows.reduce((total, win, wi) => {
@@ -38,8 +51,11 @@ export function selectedTabCount(data: Backup, selection: WindowSelection[], onl
   }, 0);
 }
 
-/** The backup restricted to what is ticked in the preview (and, if given, to the matching tabs). */
-export function selectedData(data: Backup, selection: WindowSelection[], only?: OnlyUrls): Backup {
+/**
+ * The backup restricted to what is ticked in the preview. `only` further restricts the tabs and
+ * `onlyBookmarks` the bookmarks to those found by the search (ticked results).
+ */
+export function selectedData(data: Backup, selection: WindowSelection[], only?: OnlyUrls, onlyBookmarks?: OnlyUrls): Backup {
   const windows: BackupWindow[] = [];
   data.windows.forEach((win, wi) => {
     const sel = selection[wi];
@@ -52,21 +68,7 @@ export function selectedData(data: Backup, selection: WindowSelection[], only?: 
     if (ungroupedTabs.length === 0 && groups.length === 0) return;
     windows.push({ ...win, ungroupedTabs, groups });
   });
-  return { ...data, windows };
-}
-
-/** Tabs whose title or address contains every word of `query` (case-insensitive). */
-export function findMatchingTabs(data: Backup, query: string): BackupTab[] {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return [];
-  const matches: BackupTab[] = [];
-  for (const win of data.windows) {
-    for (const tab of [...win.ungroupedTabs, ...win.groups.flatMap((group) => group.tabs)]) {
-      const haystack = `${tab.title ?? ''}\n${tab.url ?? ''}`.toLowerCase();
-      if (words.every((word) => haystack.includes(word))) matches.push(tab);
-    }
-  }
-  return matches;
+  return { ...data, windows, ...(onlyBookmarks ? { bookmarks: pruneBookmarks(data.bookmarks, onlyBookmarks) } : {}) };
 }
 
 /** Ticks every container (ungrouped part or group) that holds at least one of the keys. */
@@ -110,45 +112,11 @@ function TreeCheckbox({ id, checked, indeterminate = false, ariaLabel, name, cou
 interface Props {
   data: Backup;
   selection: WindowSelection[];
-  /** A manual change of the ticks; the owner also drops any tab-level filter. */
   onChange: (next: WindowSelection[]) => void;
-  /** Active tab-level filter (after "Select only matching"). */
-  onlyUrls?: OnlyUrls | null;
-  onSelectOnly: (keys: OnlyUrls) => void;
-  /** Drops the filter and brings back the ticks from before it. */
-  onClearOnly: () => void;
-}
-
-function SearchResults({ matches }: { matches: BackupTab[] }) {
-  return (
-    <ScrollArea className="rounded-md border bg-background [&>[data-slot=scroll-area-viewport]]:max-h-52">
-      {/* Focusable so the scrollable list can be scrolled with the keyboard. */}
-      <ul
-        id="preview-results"
-        tabIndex={0}
-        aria-label={t('previewResultsLabel')}
-        className="flex flex-col rounded-md px-2.5 py-1 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-      >
-        {matches.map((tab, i) => (
-          <li key={i} className="flex min-w-0 flex-col py-1">
-            <span className="truncate text-sm">{tab.title || tab.url}</span>
-            {tab.title && <span className="truncate text-xs text-muted-foreground">{tab.url}</span>}
-          </li>
-        ))}
-      </ul>
-    </ScrollArea>
-  );
 }
 
 /** Windows → ungrouped tabs / groups, with tri-state window checkboxes. */
-export function PreviewCard({ data, selection, onChange, onlyUrls, onSelectOnly, onClearOnly }: Props) {
-  const [query, setQuery] = useState('');
-  const searching = query.trim() !== '';
-  const matches = useMemo(() => findMatchingTabs(data, query), [data, query]);
-  const clearSearch = () => {
-    setQuery('');
-    onClearOnly();
-  };
+export function PreviewCard({ data, selection, onChange }: Props) {
   const update = (wi: number, next: WindowSelection) => onChange(selection.map((sel, i) => (i === wi ? next : sel)));
   const setAll = (value: boolean) => onChange(selection.map((sel) => ({ ungrouped: value, groups: sel.groups.map(() => value) })));
 
@@ -168,45 +136,7 @@ export function PreviewCard({ data, selection, onChange, onlyUrls, onSelectOnly,
         </div>
       </div>
 
-      <Input
-        id="preview-search"
-        type="search"
-        value={query}
-        autoComplete="off"
-        placeholder={t('previewSearchPlaceholder')}
-        aria-label={t('previewSearchPlaceholder')}
-        onChange={(event) => setQuery(event.target.value)}
-      />
-
-      {(searching || onlyUrls) && (
-        <div className="flex items-center justify-between gap-2">
-          <p id="preview-match-count" role="status" className="text-xs text-muted-foreground">
-            {searching ? (matches.length > 0 ? tp('previewMatchCount', matches.length, fmt(matches.length)) : t('previewNoMatches')) : ''}
-          </p>
-          <div className="flex items-center gap-1">
-            {searching && (
-              <Button
-                type="button"
-                id="btn-select-matching"
-                variant="secondary"
-                size="xs"
-                disabled={matches.length === 0}
-                onClick={() => onSelectOnly(new Set(matches.map((tab) => dedupKey(tab.url))))}
-              >
-                {t('previewSelectMatching')}
-              </Button>
-            )}
-            <Button type="button" id="btn-clear-search" variant="ghost" size="xs" onClick={clearSearch}>
-              {t('previewClearSearch')}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {searching ? (
-        matches.length > 0 && <SearchResults matches={matches} />
-      ) : (
-        <ScrollArea className="rounded-md border bg-background [&>[data-slot=scroll-area-viewport]]:max-h-52">
+      <ScrollArea className="rounded-md border bg-background [&>[data-slot=scroll-area-viewport]]:max-h-52">
           <div id="preview-tree" role="group" aria-labelledby="preview-title" className="px-2.5 py-1.5">
             {data.windows.map((win, wi) => {
               const sel = selection[wi];
@@ -265,12 +195,9 @@ export function PreviewCard({ data, selection, onChange, onlyUrls, onSelectOnly,
             })}
           </div>
         </ScrollArea>
-      )}
 
       <p id="preview-total" role="status" className="text-xs text-muted-foreground">
-        {onlyUrls
-          ? tp('previewRestoringMatching', selectedTabCount(data, selection, onlyUrls), fmt(selectedTabCount(data, selection, onlyUrls)))
-          : t('previewSelected', fmt(selectedTabCount(data, selection)))}
+        {t('previewSelected', fmt(selectedTabCount(data, selection)))}
       </p>
     </section>
   );
