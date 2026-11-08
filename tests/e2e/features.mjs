@@ -244,6 +244,84 @@ ok(!!reopened, `both selected tabs were opened (${beforeRestore} tabs before)`);
 const unselected = await evaluate(`return (await chrome.tabs.query({})).some((t) => decodeURIComponent((t.url || '') + (t.pendingUrl || '')).includes('srch-shared.html'));`);
 ok(!unselected, 'the page that was not selected was not reopened');
 
+// --- 6. Choose which backups to search (the "Search in" menu) -------------------------------
+// Real mouse events: Radix opens its menu on pointerdown, which element.click() does not send.
+const mouseClick = async (selector) => {
+    const pos = await evaluate(`const e = document.querySelector(${JSON.stringify(selector)}); if (!e) return null; e.scrollIntoView({ block: 'center' }); const b = e.getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 };`);
+    if (!pos) throw new Error(`no element ${selector}`);
+    await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', ...pos }, sessionId);
+    await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', ...pos, button: 'left', clickCount: 1 }, sessionId);
+    await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', ...pos, button: 'left', clickCount: 1 }, sessionId);
+    await sleep(250);
+};
+const pressEscape = async () => {
+    await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }, sessionId);
+    await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }, sessionId);
+    await sleep(200);
+};
+const resultNames = () => evaluate(`return [...document.querySelectorAll('#search-results [role=checkbox]')].map((b) => (b.getAttribute('aria-label') || '').split('/').pop()).sort();`);
+
+// The earlier restore switched tabs without touching the hash: go through another hash so the change is seen.
+await evaluate(`location.hash = '#export'; return true;`);
+await sleep(300);
+await evaluate(`location.hash = '#backups'; return true;`);
+await poll(() => evaluate(`const b = document.getElementById('backups-search'); return !!b && b.getBoundingClientRect().width > 0;`));
+await typeInto('#backups-search', ''); // back to the snapshot list (drops the earlier ticks)
+ok(await poll(() => evaluate(`return !!document.getElementById('search-scope');`)), 'Backups tab has the "Search in" control');
+ok((await evaluate(`return document.getElementById('search-scope').textContent.trim();`)) === 'All backups', 'scope defaults to "All backups"');
+await mouseClick('#search-scope');
+ok(await poll(() => evaluate(`return !!document.querySelector('[data-scope-id="${snapA.snapshot.id}"]') && !!document.querySelector('[data-scope-id="${snapB.snapshot.id}"]');`)), 'scope menu lists the snapshots');
+await mouseClick(`[data-scope-id="${snapB.snapshot.id}"]`); // untick the second snapshot
+ok(await evaluate(`return !!document.querySelector('[role=menu]') && document.querySelector('[data-scope-id="${snapB.snapshot.id}"]').getAttribute('aria-checked') === 'false';`), 'menu stays open and the snapshot is unticked');
+ok(/\d+ of \d+ backups/.test(await evaluate(`return document.getElementById('search-scope').textContent;`)), 'scope button shows "N of M backups"');
+await pressEscape();
+await typeInto('#backups-search', 'srch-');
+await poll(() => evaluate(`return document.querySelectorAll('#search-results [role=checkbox]').length >= 2;`), 10000);
+const scoped = await resultNames();
+ok(JSON.stringify(scoped) === JSON.stringify(['srch-a.html', 'srch-shared.html']), `scoped to the first snapshot: only its pages (${scoped})`);
+const scopedSummary = await evaluate(`return document.getElementById('search-summary')?.textContent;`);
+ok(/ of \d+ backups/.test(scopedSummary ?? ''), `summary says how many backups were searched: "${scopedSummary}"`);
+const scopedReply = await send({ type: 'SEARCH_SNAPSHOTS', query: 'srch-', ids: [snapB.snapshot.id] });
+ok(scopedReply.searched === 1 && scopedReply.available >= 2 && scopedReply.results.every((r) => !r.url.endsWith('srch-a.html')), `SEARCH_SNAPSHOTS with ids searched ${scopedReply.searched} of ${scopedReply.available}`);
+await typeInto('#backups-search', '');
+
+// --- 7. Search inside an imported file, tick one tab and one bookmark, restore just those ----
+const pickDir = mkdtempSync(join(tmpdir(), 'tm-pick-'));
+const pickFile = join(pickDir, 'pick-backup.json');
+writeFileSync(pickFile, JSON.stringify({
+    schemaVersion: '1.1', exportedAt: new Date().toISOString(), source: {},
+    windows: [{ ungroupedTabs: [1, 2].map((n) => ({ url: `${siteBase}/pick-tab-${n}.html`, title: `Pick tab ${n}`, pinned: false })), groups: [] }],
+    bookmarks: [{ title: 'Bookmarks bar', folderType: 'bookmarks-bar', children: [1, 2].map((n) => ({ title: `Pick mark ${n}`, url: `${siteBase}/pick-mark-${n}.html` })) }],
+}));
+await evaluate(`location.hash = '#export'; return true;`);
+await sleep(300);
+await evaluate(`location.hash = '#import'; return true;`);
+await poll(() => evaluate(`return !!(document.getElementById('import-file') || document.getElementById('btn-results-another'));`));
+if (await evaluate(`return !!document.getElementById('btn-results-another');`)) {
+    await evaluate(`document.getElementById('btn-results-another').click(); return true;`);
+    await poll(() => evaluate(`return !!document.getElementById('import-file');`));
+}
+await setFile(pickFile);
+ok(await poll(() => evaluate(`return !!document.getElementById('preview-search');`)), 'Import review has the search box');
+ok(!(await evaluate(`return !!document.getElementById('btn-select-matching');`)), 'no "Select only matching" button any more');
+await typeInto('#preview-search', 'pick');
+const fileRows = await poll(() => evaluate(`const n = document.querySelectorAll('#preview-results [role=checkbox]').length; return n >= 4 ? n : 0;`), 10000);
+ok(fileRows === 4, `search in the file lists 2 tabs and 2 bookmarks (${fileRows})`);
+ok(await evaluate(`const b = document.getElementById('btn-import'); return b.disabled && /select results/i.test(b.textContent);`), 'restore button is disabled until something is ticked');
+await evaluate(`
+  for (const name of ['Pick tab 1', 'Pick mark 1']) document.querySelector('#preview-results [role=checkbox][aria-label="' + name + '"]').click();
+  return true;`);
+const pickLabel = await poll(() => evaluate(`const b = document.getElementById('btn-import'); return b && !b.disabled ? b.textContent.trim() : null;`));
+ok(/\b2\b.*selected/i.test(pickLabel ?? ''), `restore button: "${pickLabel}"`);
+await evaluate(`document.getElementById('btn-import').click(); return true;`);
+const pickDone = await waitImport();
+ok(pickDone?.status === 'done' && pickDone.result?.tabs === 1 && pickDone.result?.bookmarks === 1, `restored exactly 1 tab and 1 bookmark: ${JSON.stringify({ s: pickDone?.status, t: pickDone?.result?.tabs, b: pickDone?.result?.bookmarks })}`);
+const urlsNow = await evaluate(`return (await chrome.tabs.query({})).map((t) => decodeURIComponent((t.url || '') + ' ' + (t.pendingUrl || '')));`);
+ok(urlsNow.some((u) => u.includes('pick-tab-1.html')), 'the ticked tab was opened');
+ok(!urlsNow.some((u) => u.includes('pick-tab-2.html')), 'the other tab was not opened');
+const marks = await evaluate(`return { one: (await chrome.bookmarks.search({ url: '${siteBase}/pick-mark-1.html' })).length, two: (await chrome.bookmarks.search({ url: '${siteBase}/pick-mark-2.html' })).length };`);
+ok(marks.one === 1 && marks.two === 0, `the ticked bookmark was created, the other was not: ${JSON.stringify(marks)}`);
+
 const errors = (await send({ type: 'DIAGNOSTICS' })).report.logs.filter((l) => l.level === 'ERROR');
 ok(errors.length === 0, `no worker errors ${JSON.stringify(errors).slice(0, 300)}`);
 

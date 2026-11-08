@@ -304,6 +304,27 @@ async function popupBackupStates(p, theme) {
 
 /** Search across backups: results, ticked results, a filter, nothing found; Escape returns to the list. */
 async function searchStates(p, theme) {
+    // "Search in": the menu, one backup unticked, back to all.
+    check(`Search in: the button is named and shows the choice [${theme}]`, await p.eval(`const b = document.getElementById('search-scope'); return !!b && (b.getAttribute('aria-label') || '').includes(b.textContent.trim()) && b.textContent.trim().length > 0;`));
+    await p.click('#search-scope');
+    await p.waitFor(`document.querySelector('[role=menu]')`);
+    check(`Search in: the menu fits the popup and lists All backups and each snapshot [${theme}]`, await p.eval(`const m = document.querySelector('[role=menu]'); const r = m.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight + 1 && m.querySelectorAll('[role=menuitemcheckbox]').length >= 3;`));
+    await audit(p, 'Popup: Backups, "Search in" menu open', theme);
+    await p.click('[role=menu] [data-scope-id]');
+    await p.waitFor(`document.querySelector('[role=menu] [data-scope-id][aria-checked=false]')`);
+    check(`Search in: the menu stays open while ticking [${theme}]`, await p.eval(`return !!document.querySelector('[role=menu]');`));
+    await audit(p, 'Popup: Backups, "Search in" menu with one backup unticked', theme);
+    await p.click('#scope-all');
+    await p.waitFor(`document.getElementById('scope-all').getAttribute('aria-checked') === 'true'`);
+    await p.press('Escape');
+    await p.waitFor(`!document.querySelector('[role=menu]')`);
+    // A row's "Search in this backup": limits the scope and focuses the search box.
+    await p.click('#snapshot-list > li:nth-child(1) button[aria-label^="Search in"]');
+    check(`Search in this backup: scope narrows to one backup and the search box is focused [${theme}]`, await p.eval(`return /^1 of \\d+ backups/.test(document.getElementById('search-scope').textContent.trim()) && document.activeElement?.id === 'backups-search';`));
+    await p.click('#search-scope'); await p.waitFor(`document.querySelector('[role=menu]')`);
+    await p.click('#scope-all'); await p.press('Escape');
+    await p.waitFor(`!document.querySelector('[role=menu]')`);
+
     await p.type('#backups-search', 'cmp-');
     await p.waitFor(`document.querySelectorAll('#search-results [role=checkbox]').length >= 2`);
     check(`Search: input is a named search box [${theme}]`, await p.eval(`const i = document.getElementById('backups-search'); return i.type === 'search' && !!i.getAttribute('aria-label');`));
@@ -421,18 +442,26 @@ async function tabViewStates(theme) {
     await audit(p, 'Tab: Import review, tab options (open in current window)', theme);
     await p.click('#im-target-new-windows');
 
-    // Search in the preview: results, then "Select only matching".
-    await p.type('#preview-search', 'page-1');
-    await p.waitFor(`document.getElementById('preview-results') && document.getElementById('btn-select-matching')`);
-    await p.eval(`document.getElementById('preview-card').scrollIntoView();`);
-    await audit(p, 'Tab: Import review, preview search results', theme);
-    await p.click('#btn-select-matching');
-    await p.waitFor(`document.getElementById('preview-total').textContent !== ''`);
-    await audit(p, 'Tab: Import review, search "Select only matching" applied', theme);
+    // Search in the loaded file: results with checkboxes, ticked results, no matches, Escape back to the tree.
+    await p.type('#preview-search', 'example');
+    await p.waitFor(`document.getElementById('preview-results') && document.getElementById('btn-preview-select-all')`);
+    await p.eval(`document.getElementById('import-search').scrollIntoView();`);
+    check(`Import search: rows have named checkboxes and the list is named [${theme}]`, await p.eval(`const l = document.getElementById('preview-results'); return !!l.getAttribute('aria-label') && [...l.querySelectorAll('[role=checkbox]')].length > 5 && [...l.querySelectorAll('[role=checkbox]')].every((c) => (c.getAttribute('aria-label') || '').length > 0);`));
+    check(`Import search: restore button is disabled and says what to do while nothing is ticked [${theme}]`, await p.eval(`const b = document.getElementById('btn-import'); return b.disabled && /select results/i.test(b.textContent);`));
+    await audit(p, 'Tab: Import review, search results (nothing ticked)', theme);
+    await p.click('#preview-results li:nth-child(1) [role=checkbox]');
+    await p.click('#preview-results li:nth-child(2) [role=checkbox]');
+    await p.waitFor(`/\\b2\\b/.test(document.getElementById('btn-import').textContent) && !document.getElementById('btn-import').disabled`);
+    await audit(p, 'Tab: Import review, search results with two selected', theme);
+    await p.click('#preview-filter [data-state]:nth-child(3)');
+    await audit(p, 'Tab: Import review, search results filtered to bookmarks', theme);
     await p.type('#preview-search', 'zzz-no-such-tab');
-    await p.waitFor(`!document.getElementById('preview-results')`);
+    await p.waitFor(`document.getElementById('preview-empty')`);
     await audit(p, 'Tab: Import review, search with no matches', theme);
-    await p.click('#btn-clear-search');
+    await p.eval(`document.getElementById('preview-search').focus();`);
+    await p.press('Escape');
+    await p.waitFor(`document.getElementById('preview-tree') && !document.getElementById('preview-results')`);
+    check(`Import search: Escape clears the box, brings the tree back and drops the ticks [${theme}]`, await p.eval(`return document.getElementById('preview-search').value === '' && !/selected/i.test(document.getElementById('btn-import').textContent);`));
 
     // Review with more than 200 tabs.
     await p.setFile('#import-file', bigPath);
@@ -631,21 +660,51 @@ async function keyboardChecks() {
     await p.waitFor(`document.getElementById('import-summary') && document.getElementById('btn-import')`);
     check('Unlock: Enter with the right password opens the review', true);
 
-    // Search: input -> results -> buttons, all by keyboard.
+    // Search in the file: input -> results -> buttons, all by keyboard.
     await p.type('#preview-search', 'page-1');
     await p.waitFor(`document.getElementById('preview-results')`);
     await tabOrderCheck(p, 'Import review (search results)');
     await p.eval(`document.getElementById('preview-search').focus();`);
     const searchOrder = [];
-    for (let i = 0; i < 6; i++) { await p.press('Tab'); searchOrder.push(await p.eval(`return document.activeElement?.id || document.activeElement?.tagName;`)); }
-    check('Search: Tab from the input reaches Select only matching and Clear', searchOrder.includes('btn-select-matching') && searchOrder.includes('btn-clear-search'), searchOrder.join(' > '));
-    await p.eval(`document.getElementById('btn-select-matching').focus();`);
+    for (let i = 0; i < 8; i++) { await p.press('Tab'); searchOrder.push(await p.eval(`return document.activeElement?.id || document.activeElement?.getAttribute('aria-label') || document.activeElement?.tagName;`)); }
+    check('Search: Tab from the input reaches the filter, Select all and then the result checkboxes (Clear selection is disabled until something is ticked)', searchOrder[0] === 'BUTTON' && searchOrder[1] === 'btn-preview-select-all' && searchOrder.slice(2).every((x) => /^Example page/.test(x)) && !searchOrder.includes('btn-preview-clear'), searchOrder.join(' > '));
+    await p.eval(`document.getElementById('btn-preview-select-all').focus();`);
     await p.press('Enter');
-    check('Search: Select only matching works with Enter', await p.eval(`return /\\d/.test(document.getElementById('preview-total').textContent) && !!document.getElementById('btn-clear-search');`), await p.eval(`return document.getElementById('preview-total').textContent;`));
-    await p.eval(`document.getElementById('btn-clear-search').focus();`);
+    check('Search: Select all works with Enter and the button shows the count', await p.eval(`const b = document.getElementById('btn-import'); return /selected/i.test(b.textContent) && !b.disabled;`), await p.eval(`return document.getElementById('btn-import').textContent;`));
+    await p.eval(`document.querySelector('#preview-results [role=checkbox]').focus();`);
     await p.press(' ');
-    check('Search: Clear works with Space', await p.eval(`return document.getElementById('preview-search').value === '';`));
+    check('Search: Space unticks a result', await p.eval(`return document.querySelector('#preview-results [role=checkbox]').getAttribute('aria-checked') === 'false';`));
+    await p.eval(`document.getElementById('btn-preview-clear').focus();`);
+    await p.press(' ');
+    check('Search: Clear selection works with Space', await p.eval(`return document.getElementById('btn-import').disabled && /select results/i.test(document.getElementById('btn-import').textContent);`));
+    await p.eval(`document.getElementById('preview-search').focus();`);
+    await p.press('Escape');
+    check('Search: Escape in the box clears the search', await p.eval(`return document.getElementById('preview-search').value === '' && !!document.getElementById('preview-tree');`));
     await p.eval(`document.getElementById('btn-menu').focus();`);
+
+    // "Search in" menu (Backups): opens with Enter, items are checkboxes toggled with Space, the menu stays open, Escape returns focus.
+    await clickTab(p, 'backups');
+    await p.waitFor(`document.getElementById('backups-panel')`);
+    for (let i = 0; i < 2 - (await p.send({ type: 'SNAPSHOTS_LIST' })).snapshots.length; i++) await p.send({ type: 'SNAPSHOT_CREATE' });
+    await clickTab(p, 'export'); await clickTab(p, 'backups');
+    await p.waitFor(`document.getElementById('search-scope')`);
+    await tabOrderCheck(p, 'Backups (search scope)');
+    await p.eval(`document.getElementById('search-scope').focus();`);
+    await p.press('Enter');
+    await p.waitFor(`document.querySelector('[role=menu]')`);
+    check('Search in: the menu focuses an item on open', await p.eval(`return document.activeElement?.getAttribute('role') === 'menuitemcheckbox';`));
+    await p.press('ArrowDown');
+    await p.press('ArrowDown');
+    const scopeItemBefore = await p.eval(`return document.activeElement?.getAttribute('aria-checked');`);
+    await p.press(' ');
+    check('Search in: Space toggles the focused backup and keeps the menu open', await p.eval(`return !!document.querySelector('[role=menu]') && document.activeElement?.getAttribute('aria-checked') !== ${JSON.stringify(scopeItemBefore)};`));
+    check('Search in: the button reports the partial choice', /\d+ of \d+ backups/.test(await p.eval(`return document.getElementById('search-scope').textContent;`)));
+    await p.press('Escape');
+    await sleep(200);
+    check('Search in: Escape closes the menu and focus returns to its button', await p.eval(`return !document.querySelector('[role=menu]') && document.activeElement?.id === 'search-scope';`));
+    await p.click('#search-scope'); await p.waitFor(`document.querySelector('[role=menu]')`);
+    await p.click('#scope-all');
+    await p.press('Escape');
 
     // Compare mode checkboxes (Backups): reachable by Tab, toggled with Space.
     await clickTab(p, 'backups');
