@@ -67,6 +67,7 @@ export function routeSend(handlers: Record<string, Handler> = {}) {
     SNAPSHOTS_LIST: () => ({ ok: true, snapshots: [], settings: DEFAULT_SETTINGS, lastRun: null }),
     IMPORT_START: () => ({ ok: true }),
     IMPORT_CANCEL: () => ({ ok: true }),
+    IMPORT_DISMISS: () => ({ ok: true }),
     SNAPSHOT_DELETE: () => ({ ok: true }),
   };
   sendMock.mockReset();

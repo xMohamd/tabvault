@@ -80,6 +80,12 @@ export function App() {
   const [dark, setDark] = useState(() => resolveTheme() === 'dark');
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const reportedFinish = useRef<string | null>(null);
+  /**
+   * Whether this popup saw the restore running. The finish toast is only for a restore that
+   * ends while the popup is open; a result found when the popup opens is shown by the results
+   * view (until dismissed), not announced again.
+   */
+  const sawRunning = useRef(false);
   /** Current tab for callbacks: the finish toast is skipped when the results view is on screen. */
   const tabRef = useRef(tab);
   tabRef.current = tab;
@@ -102,6 +108,7 @@ export function App() {
     (state: ImportState) => {
       setImportState(state);
       if (isRunning(state)) {
+        sawRunning.current = true;
         setDismissedFinish(null);
         reportedFinish.current = null;
         if (state.status === 'cancelling') {
@@ -112,7 +119,7 @@ export function App() {
         }
         return;
       }
-      if (!isFinished(state)) return;
+      if (!isFinished(state) || !sawRunning.current) return;
       // Reported once per finish so it can't clobber later messages.
       const key = state.finishedAt ?? state.status;
       if (key === reportedFinish.current) return;
@@ -290,7 +297,11 @@ export function App() {
                 isTabView={tabView}
                 importer={importer}
                 setStatus={setStatus}
-                onDismissResults={() => setDismissedFinish(finishKey)}
+                onDismissResults={() => {
+                  setDismissedFinish(finishKey);
+                  // Persist it in the background, or the results come back on the next open.
+                  void send('IMPORT_DISMISS');
+                }}
                 openInTab={(name) => void openInTab(name)}
                 onStartAccepted={() => {
                   // The worker's broadcast normally arrives first; this only covers a missed one.

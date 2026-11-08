@@ -8,6 +8,7 @@ import {
   backupFile,
   broadcast,
   callsOf,
+  CHROME_INFO,
   IDLE_STATE,
   installI18n,
   makeBackup,
@@ -633,6 +634,39 @@ describe('import', () => {
       const message = t('importStartFailed', 'nope');
       await waitFor(() => expect($('#import-message').textContent).toBe(message));
       expect((await findToast(message)).getAttribute('data-type')).toBe('error');
+    });
+  });
+
+  describe('a finished restore found when the popup opens', () => {
+    const finishedOnOpen = () =>
+      routeSend({ GET_STATE: () => ({ ok: true, browser: CHROME_INFO, importState: doneState() }) });
+
+    it('shows the results on the Import tab but does not announce them again', async () => {
+      finishedOnOpen();
+      const user = userEvent.setup();
+      await openTabAndWait(user);
+      expect($('#results-card')).toBeTruthy();
+      await openTab(user, 'export');
+      await new Promise((r) => setTimeout(r, 50));
+      const toasts = [...document.querySelectorAll('[data-sonner-toast]')].map((el) => el.textContent ?? '');
+      expect(toasts.some((text) => text.includes(t('statusImportDoneIssues', ['8', '0'])))).toBe(false);
+    });
+
+    it('Done tells the background to forget it, so it does not come back', async () => {
+      finishedOnOpen();
+      const user = userEvent.setup();
+      await openTabAndWait(user);
+      await user.click($('#btn-results-dismiss'));
+      expect(document.querySelector('#results-card')).toBeNull();
+      expect(callsOf('IMPORT_DISMISS')).toHaveLength(1);
+    });
+
+    it('Restore another file forgets it too', async () => {
+      finishedOnOpen();
+      const user = userEvent.setup();
+      await openTabAndWait(user);
+      await user.click($('#btn-results-another'));
+      expect(callsOf('IMPORT_DISMISS')).toHaveLength(1);
     });
   });
 
