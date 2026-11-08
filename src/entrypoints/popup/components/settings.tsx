@@ -61,8 +61,9 @@ export function SettingsSection({
         />
         <span className="flex-1">{title}</span>
         {summary && (
-          <Badge variant="secondary" className="max-w-40 truncate font-normal">
-            {summary}
+          <Badge variant="secondary" className="max-w-[55%] min-w-0 justify-start font-normal" title={summary}>
+            {/* Badge centres its content; the inner span lets long text end in "…" instead of being clipped on both sides. */}
+            <span className="truncate">{summary}</span>
           </Badge>
         )}
       </CollapsibleTrigger>

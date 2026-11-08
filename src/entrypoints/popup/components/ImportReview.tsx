@@ -70,6 +70,9 @@ export const DEFAULT_SETTINGS: RestoreSettings = {
   restoreContainers: true,
 };
 
+/** Short loading-mode words for the collapsed section's summary badge. */
+const LOAD_MODE_SHORT: Record<string, string> = { discard: 'loadShortDiscard', lazy: 'loadShortLazy', load: 'loadShortLoad' };
+
 const LOAD_MODES: Array<[RestoreMode, string]> = [
   ['discard', 'loadDiscard'],
   ['lazy', 'loadLazy'],
@@ -230,7 +233,9 @@ export function ImportReview(props: Props) {
   }
 
   const loadModeLabel = t(LOAD_MODES.find(([value]) => value === settings.restoreMode)?.[1] ?? 'loadDiscard');
-  const tabOptionsSummary = currentWindow ? `${loadModeLabel} · ${t('importTargetCurrent')}` : loadModeLabel;
+  // The badge sits beside the section title, so it uses short words ("Unloaded · Current window").
+  const loadModeShort = t(LOAD_MODE_SHORT[settings.restoreMode] ?? 'loadShortDiscard');
+  const tabOptionsSummary = currentWindow ? `${loadModeShort} · ${t('importTargetCurrent')}` : loadModeLabel;
   const strategyLabel = t(BOOKMARK_STRATEGIES.find(([value]) => value === settings.bmStrategy)?.[1] ?? 'bmMerge');
   const noTabGroups = browser.features?.tabGroups === false;
 

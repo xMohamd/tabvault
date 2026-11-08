@@ -84,7 +84,11 @@ describe('open in', () => {
     expect($('#im-restore-layout').hasAttribute('disabled')).toBe(true);
     expect(isOn('#im-restore-layout')).toBe(false);
     expect($('#tab-options').textContent).toContain(t('importLayoutNewOnly'));
-    expect($('#tab-options').textContent).toContain(t('importTargetCurrent')); // summary badge follows
+    // The summary badge follows, in short words so it fits beside the title, with the full text as a tooltip.
+    const badge = $('#tab-options [data-slot=badge]');
+    expect(badge.textContent).toBe(`${t('loadShortDiscard')} · ${t('importTargetCurrent')}`);
+    expect(badge.getAttribute('title')).toBe(badge.textContent);
+    expect(badge.querySelector('span.truncate')).toBeTruthy();
 
     expect(await startImport(user)).toMatchObject({ target: 'current-window', restoreWindowLayout: false });
   });

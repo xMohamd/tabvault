@@ -2138,5 +2138,17 @@
   "searchSelectToRestore": {
     "message": "Select results to restore",
     "description": "Disabled restore button on search results while nothing is ticked."
+  },
+  "loadShortDiscard": {
+    "message": "Unloaded",
+    "description": "Short loading-mode word in the Tab options summary badge: tabs open without loading."
+  },
+  "loadShortLazy": {
+    "message": "Placeholders",
+    "description": "Short loading-mode word in the summary badge: tabs open as light placeholder pages."
+  },
+  "loadShortLoad": {
+    "message": "Loaded",
+    "description": "Short loading-mode word in the summary badge: tabs load normally."
   }
 }
