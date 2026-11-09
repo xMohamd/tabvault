@@ -201,7 +201,7 @@ describe('search across backups', () => {
     // Now in the Import tab with the normal summary and options.
     await waitFor(() => expect(has('#import-summary')).toBe(true));
     expect($('#summary-format').textContent).toContain(t('formatSearchResults'));
-    expect($('#summary-stats').textContent).toBe(`3${t('labelTabs')}1${t('labelWindows')}1${t('labelGroups')}1${t('labelBookmarks')}`);
+    expect($('#summary-stats').textContent).toBe(`3${tp('labelTabs', 3)}1${tp('labelWindows', 1)}1${tp('labelGroups', 1)}1${tp('labelBookmarks', 1)}`);
     expect($('#file-info').textContent).toBe(tp('fileLoadedSearch', 4, '4'));
     expect(has('#tab-options')).toBe(true); // the usual restore options
 
@@ -287,8 +287,8 @@ describe('choosing which backups to search', () => {
     expect(itemIds()).toEqual(['scope-all', 'new', 'old']);
     expect([...document.querySelectorAll('[role=menuitemcheckbox]')].every((el) => checked(el) === 'true')).toBe(true);
     expect(item('new').textContent).toContain(dateOf(NEW));
-    expect(item('new').textContent).toContain(`${t('reasonManual')} · 3 ${t('labelTabs').toLowerCase()}`);
-    expect(item('old').textContent).toContain(`${t('reasonScheduled')} · 2 ${t('labelTabs').toLowerCase()}`);
+    expect(item('new').textContent).toContain(`${t('reasonManual')} · ${tp('countTabs', 3, '3')}`);
+    expect(item('old').textContent).toContain(`${t('reasonScheduled')} · ${tp('countTabs', 2, '2')}`);
   });
 
   it('searches only the ticked backups, keeps the menu open and counts them in the summary', async () => {

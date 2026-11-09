@@ -337,21 +337,77 @@
       }
     }
   },
-  "labelTabs": {
+  "labelTabs_one": {
+    "message": "Tab",
+    "description": "Label under a count of exactly one (tab)."
+  },
+  "labelTabs_other": {
     "message": "Tabs",
-    "description": "Label next to a number of tabs."
+    "description": "Label under a count (tabs), for every number except one."
   },
-  "labelWindows": {
+  "countTabs_one": {
+    "message": "$COUNT$ tab",
+    "description": "Inline count of tabs (singular), e.g. in a snapshot row.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "42"
+      }
+    }
+  },
+  "countTabs_other": {
+    "message": "$COUNT$ tabs",
+    "description": "Inline count of tabs (plural).",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "42"
+      }
+    }
+  },
+  "labelWindows_one": {
+    "message": "Window",
+    "description": "Label under a count of exactly one (window)."
+  },
+  "labelWindows_other": {
     "message": "Windows",
-    "description": "Label next to a number of windows."
+    "description": "Label under a count (windows), for every number except one."
   },
-  "labelGroups": {
+  "labelGroups_one": {
+    "message": "Group",
+    "description": "Label under a count of exactly one (group)."
+  },
+  "labelGroups_other": {
     "message": "Groups",
-    "description": "Label next to a number of tab groups."
+    "description": "Label under a count (groups), for every number except one."
   },
-  "labelBookmarks": {
+  "labelBookmarks_one": {
+    "message": "Bookmark",
+    "description": "Label under a count of exactly one (bookmark)."
+  },
+  "labelBookmarks_other": {
     "message": "Bookmarks",
-    "description": "Label next to a number of bookmarks."
+    "description": "Label under a count (bookmarks), for every number except one."
+  },
+  "countBookmarks_one": {
+    "message": "$COUNT$ bookmark",
+    "description": "Inline count of bookmarks (singular), e.g. in a snapshot row.",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "42"
+      }
+    }
+  },
+  "countBookmarks_other": {
+    "message": "$COUNT$ bookmarks",
+    "description": "Inline count of bookmarks (plural).",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "42"
+      }
+    }
   },
   "warnInvalidEntries_one": {
     "message": "$COUNT$ invalid entry was ignored.",
@@ -983,10 +1039,6 @@
     "message": "Before replace",
     "description": "Badge: safety snapshot taken before replacing bookmarks."
   },
-  "reasonPreImport": {
-    "message": "Before import",
-    "description": "Badge: safety snapshot taken before an import."
-  },
   "snapshotRestore": {
     "message": "Restore",
     "description": "Button loading a snapshot into the Import tab."
@@ -1374,7 +1426,7 @@
     "description": "Switch: automatic backups are also written to Downloads."
   },
   "autoSaveFilesHint": {
-    "message": "In Downloads/TabVault. Keeps the newest $N$ files, like snapshots.",
+    "message": "Keeps the newest $N$ files, like snapshots.",
     "description": "Help text under the save-to-files switch.",
     "placeholders": {
       "n": {
@@ -2150,5 +2202,99 @@
   "loadShortLoad": {
     "message": "Loaded",
     "description": "Short loading-mode word in the summary badge: tabs load normally."
+  },
+  "fileLocationLabel": {
+    "message": "Save files to",
+    "description": "Label of the backup file location."
+  },
+  "fileLocationDownloads": {
+    "message": "Downloads",
+    "description": "Name of the Downloads folder, shown as Downloads/<folder>."
+  },
+  "fileLocationChosen": {
+    "message": "Chosen folder",
+    "description": "Shown when the picked folder name is not available."
+  },
+  "fileLocationDefaultBadge": {
+    "message": "Default",
+    "description": "Badge beside the location when it is the default one."
+  },
+  "fileLocationChoose": {
+    "message": "Choose folder…",
+    "description": "Button: open the system folder picker for backup files."
+  },
+  "fileLocationUseDefault": {
+    "message": "Use default",
+    "description": "Button: save backup files to Downloads/TabVault again."
+  },
+  "fileLocationAllow": {
+    "message": "Allow access",
+    "description": "Button: let the extension save into the chosen folder again."
+  },
+  "fileLocationOpensTab": {
+    "message": "Choosing a folder opens this page in a tab, because the folder picker would close the popup.",
+    "description": "Hint under the folder buttons in the popup."
+  },
+  "fileLocationNeedsAccess": {
+    "message": "The browser needs your permission again to save into this folder. Until then, files go to $FALLBACK$.",
+    "description": "Warning: permission to the chosen folder was lost.",
+    "placeholders": {
+      "fallback": {
+        "content": "$1",
+        "example": "fallback"
+      }
+    }
+  },
+  "fileLocationMissing": {
+    "message": "The chosen folder is no longer available. Files go to $FALLBACK$ until you choose a folder again.",
+    "description": "Warning: the chosen folder is gone.",
+    "placeholders": {
+      "fallback": {
+        "content": "$1",
+        "example": "fallback"
+      }
+    }
+  },
+  "fileLocationSet": {
+    "message": "Backup files will be saved to \"$NAME$\".",
+    "description": "Toast after choosing a folder.",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "name"
+      }
+    }
+  },
+  "fileLocationReset": {
+    "message": "Backup files will be saved to Downloads/TabVault.",
+    "description": "Toast after going back to the default location."
+  },
+  "fileLocationFailed": {
+    "message": "Couldn't use that folder: $DETAIL$",
+    "description": "Error when choosing a folder failed.",
+    "placeholders": {
+      "detail": {
+        "content": "$1",
+        "example": "detail"
+      }
+    }
+  },
+  "fileLocationSubfolderLabel": {
+    "message": "Folder inside Downloads",
+    "description": "Label of the text field for the backup folder name (Firefox)."
+  },
+  "fileLocationSubfolderHint": {
+    "message": "This browser lets extensions save files only inside your Downloads folder.",
+    "description": "Help text under the folder name field (Firefox)."
+  },
+  "lastRunFolderFallback": {
+    "message": "Last backup $DATE$ was saved to Downloads, because the chosen folder couldn't be used.",
+    "description": "Warning: the automatic backup file went to Downloads instead of the chosen folder.",
+    "placeholders": {
+      "date": {
+        "content": "$1",
+        "example": "date"
+      }
+    }
   }
 }

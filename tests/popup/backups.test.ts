@@ -187,7 +187,7 @@ describe('automatic backups autosave', () => {
     await user.click($('#bk-enabled'));
     await waitFor(() => expect(callsOf('SCHEDULE_SET')).toHaveLength(1));
     expect(callsOf('SCHEDULE_SET')[0]).toEqual({
-      settings: { enabled: true, frequency: 'daily', keep: 7, includeBookmarks: true, saveToFiles: false },
+      settings: { enabled: true, frequency: 'daily', keep: 7, includeBookmarks: true, saveToFiles: false, fileLocation: 'downloads', downloadsFolder: 'TabVault' },
     });
     await findToast(t('autoSaved'));
     expect(isOn('#bk-enabled')).toBe(true);

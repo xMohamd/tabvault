@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { t } from '@/lib/i18n';
+import { t, tp } from '@/lib/i18n';
 import { FILE_SOURCE_ID, isInScope, scopeSize, toggleAll, toggleSource, type Scope } from '@/lib/search-scope';
 import type { SnapshotMeta } from '@/lib/types';
 import { dateTimeFormat, fmt, formatDate, REASON_BADGE_KEYS } from '../shared';
@@ -80,7 +80,7 @@ export function SearchScopeMenu({ snapshots, fileName, scope, onChange }: Props)
               <span className="flex min-w-0 flex-col">
                 <span className="truncate">{date}</span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {snapshotKind(meta)} · {fmt(meta.stats?.tabs ?? 0)} {t('labelTabs').toLowerCase()}
+                  {snapshotKind(meta)} · {tp('countTabs', meta.stats?.tabs ?? 0, fmt(meta.stats?.tabs ?? 0))}
                 </span>
               </span>
             </DropdownMenuCheckboxItem>

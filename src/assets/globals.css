@@ -139,10 +139,18 @@ body {
   height: 100%;
 }
 
+/*
+ * Full-tab view: the app column is centred inside a full-width body. Centring the
+ * body itself with auto margins breaks menus: when one opens, Radix's scroll lock
+ * turns the body's side margins into padding, which squeezed the column to a strip.
+ */
 :root.is-tab-view body {
   width: auto;
-  max-width: 720px;
   height: 100vh;
+}
+
+:root.is-tab-view #root {
+  max-width: 720px;
   margin-inline: auto;
   border-inline: 1px solid var(--border);
 }

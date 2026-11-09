@@ -108,7 +108,7 @@ describe('backup scheduler', () => {
 
   it('serialises concurrent snapshots (unique ids, none lost)', async () => {
     content++;
-    await Promise.all([1, 2, 3].map(() => m.createSnapshot('pre-import', { browser: chromeInfo })));
+    await Promise.all([1, 2, 3].map(() => m.createSnapshot('pre-replace', { browser: chromeInfo })));
     const list = await m.listSnapshots();
     expect(new Set(list.map((x) => x.id)).size).toBe(list.length);
     expect(list.filter((x) => x.reason.startsWith('pre-'))).toHaveLength(3);

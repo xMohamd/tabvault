@@ -114,7 +114,7 @@ export interface ImportState {
 // ---------- snapshots ----------
 
 /** 'quick' = saved from the right-click menu or keyboard shortcut (a window or a tab group). */
-export type SnapshotReason = 'scheduled' | 'manual' | 'quick' | 'pre-replace' | 'pre-import';
+export type SnapshotReason = 'scheduled' | 'manual' | 'quick' | 'pre-replace';
 export type ScheduleFrequency = 'hourly' | 'daily' | 'weekly';
 
 export interface ScheduleSettings {
@@ -123,9 +123,18 @@ export interface ScheduleSettings {
   /** 1..50 */
   keep: number;
   includeBookmarks: boolean;
-  /** Also write each automatic backup as a file in Downloads/TabVault (kept to `keep` files). */
+  /** Also write each automatic backup as a file (kept to `keep` files). */
   saveToFiles: boolean;
+  /**
+   * Where backup files go: 'downloads' = `downloadsFolder` inside Downloads (the default);
+   * 'folder' = a folder the user picked (Chromium; the handle is in IndexedDB, see backup-folder.ts).
+   */
+  fileLocation: FileLocation;
+  /** Folder inside Downloads ("TabVault" by default). Also where files go when the picked folder can't be used. */
+  downloadsFolder: string;
 }
+
+export type FileLocation = 'downloads' | 'folder';
 
 export interface SnapshotMeta {
   id: string;
@@ -137,7 +146,15 @@ export interface SnapshotMeta {
   /** Set for quick saves: what was saved. */
   scope?: { windowId?: number; groupId?: number; title?: string };
   /** Set when the snapshot was also written to a file (automatic backups as files). */
-  file?: { downloadId: number; filename: string };
+  file?: SnapshotFile;
+}
+
+/** A backup file: a download (downloadId) or a file in the picked folder (folderId). */
+export interface SnapshotFile {
+  filename: string;
+  downloadId?: number;
+  /** The BackupFolder id the file was written to. */
+  folderId?: string;
 }
 
 export interface LastRun {
@@ -145,6 +162,8 @@ export interface LastRun {
   ok: boolean;
   error?: string;
   skipped?: 'unchanged';
+  /** The picked folder couldn't be used, so the file went to Downloads: 'access' = permission lost, 'missing' = no folder stored, 'failed' = the write failed. */
+  fileFallback?: 'access' | 'missing' | 'failed';
 }
 
 export interface DiagnosticsReport {

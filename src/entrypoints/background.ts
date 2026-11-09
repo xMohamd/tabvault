@@ -149,7 +149,6 @@ const REASON_LABELS: Record<string, [key: string, fallback: string]> = {
   manual: ['reasonManual', 'Manual'],
   quick: ['reasonQuick', 'Quick save'],
   'pre-replace': ['reasonPreReplace', 'Before replace'],
-  'pre-import': ['reasonPreImport', 'Before import'],
 };
 const labelDate = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 

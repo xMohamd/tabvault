@@ -69,8 +69,13 @@ APIs at runtime, not guessed from the browser name.
   since a bookmarklet runs code on the page you click it on. Restored tabs never open
   `javascript:` addresses.
 - **Backups**: automatic snapshots (hourly, daily or weekly, keeping the last N), optionally
-  also written as files to Downloads/TabVault (so they survive removing the extension), plus
+  also written as files (so they survive removing the extension), plus
   "back up now", restore, download and delete. Stored only in this browser.
+  Backup files go to Downloads/TabVault by default. In Chromium browsers you can choose
+  any folder instead ("Choose folder…", File System Access API; the folder is remembered in
+  IndexedDB). If the browser later needs permission again, files go to Downloads until you click
+  "Allow access". Firefox extensions can only save inside Downloads, so in Firefox you choose
+  the name of a folder there.
 - Restores run in the background, so closing the popup doesn't stop them.
 - Light and dark themes, keyboard accessible, localized via `_locales`.
 - No network access and no remote code. "Copy diagnostics" excludes URLs.

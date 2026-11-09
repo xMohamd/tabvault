@@ -72,6 +72,8 @@ const TOAST_BY_TONE: Record<Tone, (text: string) => void> = {
 
 export function App() {
   const [tabView] = useState(isTabView);
+  /** popup.html?view=tab&section=… opens on a settings section (the folder picker sends people there). */
+  const [settingsSection] = useState(() => new URLSearchParams(location.search).get('section'));
   const [tab, setTab] = useState<TabName>(() => tabFromHash() ?? 'export');
   /** Shown in the progress strip while a restore runs. */
   const [progressMessage, setProgressMessage] = useState('');
@@ -159,9 +161,10 @@ export function App() {
 
   /** Opens this page as a full tab; used for Firefox file picking and the header button. */
   const openInTab = useCallback(
-    async (name: TabName) => {
+    async (name: TabName, section?: string) => {
       try {
-        await ext.tabs.create({ url: `${ext.runtime.getURL('/popup.html')}?view=tab#${name}` });
+        const query = section ? `&section=${encodeURIComponent(section)}` : '';
+        await ext.tabs.create({ url: `${ext.runtime.getURL('/popup.html')}?view=tab${query}#${name}` });
         if (!tabView) window.close();
       } catch (error) {
         setStatus(t('openTabFailed', messageOf(error)), TONE.error);
@@ -316,6 +319,9 @@ export function App() {
                 restoreRunning={running}
                 setStatus={setStatus}
                 loadedFile={loadedFile}
+                isTabView={tabView}
+                openInTab={() => void openInTab('backups', 'backups-auto')}
+                settingsOpen={settingsSection === 'backups-auto'}
                 onRestoreSearch={(data, count) => {
                   importer.reset();
                   importer.accept({ data, label: t('formatSearchResults'), warnings: undefined, message: tp('fileLoadedSearch', count, fmt(count)) });

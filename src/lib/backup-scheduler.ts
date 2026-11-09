@@ -11,11 +11,14 @@ import { browser } from 'wxt/browser';
 import { detectBrowserAsync, type BrowserInfo } from './browser-detect';
 import { logger } from './logger';
 import { saveJsonFile } from './downloads';
+import { folderAccess, getBackupFolder, removeFolderFile, writeFolderFile } from './backup-folder';
 // Static on purpose: Chrome forbids dynamic import() inside service workers.
 import { UniversalExporter } from './exporter';
 import type { Backup } from './schema';
 import type {
   ExportOptions,
+  FileLocation,
+  SnapshotFile,
   ExportStats,
   LastRun,
   ScheduleFrequency,
@@ -24,6 +27,8 @@ import type {
   SnapshotReason,
 } from './types';
 
+/** Backup files go to Downloads/TabVault unless the user picks another place. */
+export const DEFAULT_DOWNLOADS_FOLDER = 'TabVault';
 export const SCHEDULE_ALARM = 'tabvault:auto-backup';
 export const DEFAULT_SETTINGS: ScheduleSettings = {
   enabled: false,
@@ -31,6 +36,8 @@ export const DEFAULT_SETTINGS: ScheduleSettings = {
   keep: 7,
   includeBookmarks: true,
   saveToFiles: false,
+  fileLocation: 'downloads',
+  downloadsFolder: DEFAULT_DOWNLOADS_FOLDER,
 };
 
 const SETTINGS_KEY = 'autoBackup:settings';
@@ -42,8 +49,25 @@ const PERIODS: Record<ScheduleFrequency, number> = { hourly: 60, daily: 1440, we
 const KEEP_MIN = 1;
 const KEEP_MAX = 50;
 const KEEP_SAFETY = 3;
-const SAFETY_REASONS = new Set<string>(['pre-replace', 'pre-import']);
-const REASONS = new Set<string>(['scheduled', 'manual', 'quick', 'pre-replace', 'pre-import']);
+const SAFETY_REASONS = new Set<string>(['pre-replace']);
+const REASONS = new Set<string>(['scheduled', 'manual', 'quick', 'pre-replace']);
+
+const isLocation = (v: unknown): v is FileLocation => v === 'downloads' || v === 'folder';
+
+/**
+ * Makes a folder path inside Downloads safe for downloads.download(): no absolute
+ * paths, no "..", no characters Windows rejects, at most 4 levels. Empty -> default.
+ */
+export function sanitizeDownloadsFolder(value: unknown): string {
+  if (typeof value !== 'string') return DEFAULT_DOWNLOADS_FOLDER;
+  const parts = value
+    .split(/[\\/]+/)
+    // eslint-disable-next-line no-control-regex
+    .map((part) => part.replace(/[<>:"|?*\u0000-\u001f]/g, '').trim().replace(/^[.\s]+|[.\s]+$/g, '').slice(0, 64).trim())
+    .filter((part) => part !== '')
+    .slice(0, 4);
+  return parts.length ? parts.join('/') : DEFAULT_DOWNLOADS_FOLDER;
+}
 
 const isFrequency = (v: unknown): v is ScheduleFrequency => typeof v === 'string' && Object.hasOwn(PERIODS, v);
 
@@ -77,6 +101,8 @@ function validateSettings(raw: Record<string, unknown> = {}): ScheduleSettings {
     includeBookmarks:
       typeof raw.includeBookmarks === 'boolean' ? raw.includeBookmarks : DEFAULT_SETTINGS.includeBookmarks,
     saveToFiles: typeof raw.saveToFiles === 'boolean' ? raw.saveToFiles : DEFAULT_SETTINGS.saveToFiles,
+    fileLocation: isLocation(raw.fileLocation) ? raw.fileLocation : DEFAULT_SETTINGS.fileLocation,
+    downloadsFolder: sanitizeDownloadsFolder(raw.downloadsFolder),
   };
 }
 
@@ -129,15 +155,16 @@ export async function ensureAlarm(): Promise<void> {
 export async function handleAlarm(alarm: { name?: string } | null | undefined): Promise<SnapshotMeta | null> {
   if (alarm?.name !== SCHEDULE_ALARM) return null;
   try {
-    const { meta, skipped, fileError } = await enqueue(() => runSnapshot('scheduled', {}));
+    const { meta, skipped, fileError, fileFallback } = await enqueue(() => runSnapshot('scheduled', {}));
     const at = new Date().toISOString();
     // A failed file write keeps the snapshot: ok stays true and `error` carries the warning.
+    const fallback = fileFallback ? { fileFallback } : {};
     await setLastRun(
       skipped
         ? { at, ok: true, skipped }
         : fileError
-          ? { at, ok: true, error: `File not saved: ${fileError}` }
-          : { at, ok: true },
+          ? { at, ok: true, error: `File not saved: ${fileError}`, ...fallback }
+          : { at, ok: true, ...fallback },
     );
     return meta;
   } catch (error) {
@@ -222,11 +249,47 @@ interface SnapshotOptions {
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
-/** `TabVault/tabs-backup-YYYY-MM-DD_HH-mm-ss.json` in local time. */
-export function backupFilename(date: Date = new Date()): string {
+/** `tabs-backup-YYYY-MM-DD_HH-mm-ss.json` in local time. */
+export function backupBasename(date: Date = new Date()): string {
   const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   const clock = `${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
-  return `TabVault/tabs-backup-${day}_${clock}.json`;
+  return `tabs-backup-${day}_${clock}.json`;
+}
+
+/** `<folder>/tabs-backup-YYYY-MM-DD_HH-mm-ss.json`, relative to Downloads. */
+export function backupFilename(date: Date = new Date(), folder: string = DEFAULT_DOWNLOADS_FOLDER): string {
+  return `${sanitizeDownloadsFolder(folder)}/${backupBasename(date)}`;
+}
+
+type FileFallback = NonNullable<LastRun['fileFallback']>;
+
+/**
+ * Writes a scheduled backup's file: into the picked folder when that is the location and
+ * the extension may still write there, otherwise into the Downloads folder.
+ */
+async function saveBackupFile(
+  json: string,
+  settings: ScheduleSettings,
+): Promise<{ file?: SnapshotFile; error?: string; fallback?: FileFallback }> {
+  const date = new Date();
+  let fallback: FileFallback | undefined;
+  if (settings.fileLocation === 'folder') {
+    const folder = await getBackupFolder();
+    if (!folder) fallback = 'missing';
+    else if ((await folderAccess(folder.handle)) !== 'granted') fallback = 'access';
+    else {
+      try {
+        const filename = await writeFolderFile(folder.handle, backupBasename(date), json);
+        return { file: { filename, folderId: folder.id } };
+      } catch (error) {
+        logger.warn('BACKUP_FOLDER_WRITE_FAILED', {}, error);
+        fallback = 'failed';
+      }
+    }
+  }
+  const saved = await saveJsonFile(json, backupFilename(date, settings.downloadsFolder), { saveAs: false });
+  if (!saved.ok) return { error: saved.error, ...(fallback ? { fallback } : {}) };
+  return { file: { downloadId: saved.downloadId, filename: saved.filename }, ...(fallback ? { fallback } : {}) };
 }
 
 /**
@@ -235,7 +298,19 @@ export function backupFilename(date: Date = new Date()): string {
  */
 async function removeBackupFile(meta: SnapshotMeta): Promise<void> {
   if (!meta.file) return;
-  const { downloadId } = meta.file;
+  const { downloadId, folderId, filename } = meta.file;
+  if (folderId) {
+    // Only in the folder it was written to: after the user picks another folder, old files stay.
+    const folder = await getBackupFolder();
+    if (folder?.id !== folderId || (await folderAccess(folder.handle)) !== 'granted') return;
+    try {
+      await removeFolderFile(folder.handle, filename);
+    } catch (error) {
+      logger.warn('BACKUP_FILE_REMOVE_FAILED', { id: meta.id, folder: true }, error);
+    }
+    return;
+  }
+  if (downloadId === undefined) return;
   try {
     await browser.downloads.removeFile(downloadId);
   } catch (error) {
@@ -251,7 +326,7 @@ async function removeBackupFile(meta: SnapshotMeta): Promise<void> {
 async function runSnapshot(
   reason: string,
   { browser: given, includeBookmarks, scope }: SnapshotOptions = {},
-): Promise<{ meta: SnapshotMeta | null; skipped: 'unchanged' | null; fileError?: string }> {
+): Promise<{ meta: SnapshotMeta | null; skipped: 'unchanged' | null; fileError?: string; fileFallback?: FileFallback }> {
   if (!REASONS.has(reason)) throw new RangeError(`Unknown snapshot reason: ${reason}`);
   const settings = await getSettings();
   const resolvedBrowser = given ?? (await detectBrowserAsync());
@@ -286,13 +361,15 @@ async function runSnapshot(
     ...(scope ? { scope } : {}),
   };
 
-  // Scheduled backups can also be written to Downloads. A failed write never fails the snapshot.
+  // Scheduled backups can also be written as files. A failed write never fails the snapshot.
   let fileError: string | undefined;
+  let fileFallback: FileFallback | undefined;
   if (reason === 'scheduled' && settings.saveToFiles) {
     try {
-      const saved = await saveJsonFile(data, backupFilename(), { saveAs: false });
-      if (saved.ok) meta.file = { downloadId: saved.downloadId, filename: saved.filename };
-      else fileError = saved.error;
+      const saved = await saveBackupFile(JSON.stringify(data, null, 2), settings);
+      if (saved.file) meta.file = saved.file;
+      fileError = saved.error;
+      fileFallback = saved.fallback;
     } catch (error) {
       fileError = error instanceof Error ? error.message : String(error);
     }
@@ -313,7 +390,7 @@ async function runSnapshot(
   for (const old of removed) await removeBackupFile(old);
 
   logger.info('SNAPSHOT_CREATED', { id, reason, bytes: meta.bytes, pruned: removed.length });
-  return { meta, skipped: null, ...(fileError ? { fileError } : {}) };
+  return { meta, skipped: null, ...(fileError ? { fileError } : {}), ...(fileFallback ? { fileFallback } : {}) };
 }
 
 /**

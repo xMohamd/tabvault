@@ -27,7 +27,6 @@ export const REASON_BADGE_KEYS: Record<string, string> = {
   manual: 'reasonManual',
   quick: 'reasonQuick',
   'pre-replace': 'reasonPreReplace',
-  'pre-import': 'reasonPreImport',
 };
 
 export const cx = (...parts: Array<string | false | null | undefined>): string => parts.filter(Boolean).join(' ');

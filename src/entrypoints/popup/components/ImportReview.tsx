@@ -270,10 +270,10 @@ export function ImportReview(props: Props) {
             </Button>
           </div>
           <div id="summary-stats" className="grid grid-cols-4 gap-2">
-            <StatCell value={countTabs(data)} label={t('labelTabs')} />
-            <StatCell value={data.windows.length} label={t('labelWindows')} />
-            <StatCell value={countGroups(data)} label={t('labelGroups')} />
-            <StatCell value={countBookmarks(data.bookmarks)} label={t('labelBookmarks')} />
+            <StatCell value={countTabs(data)} label={tp('labelTabs', countTabs(data))} />
+            <StatCell value={data.windows.length} label={tp('labelWindows', data.windows.length)} />
+            <StatCell value={countGroups(data)} label={tp('labelGroups', countGroups(data))} />
+            <StatCell value={countBookmarks(data.bookmarks)} label={tp('labelBookmarks', countBookmarks(data.bookmarks))} />
           </div>
         </section>
 

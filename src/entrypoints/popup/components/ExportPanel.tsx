@@ -158,10 +158,10 @@ export function ExportPanel({ setStatus }: { setStatus: SetStatus }) {
     <div id="export-panel" className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-2 pb-4">
         <section aria-label={t('exportPreviewLabel')} aria-busy={loading} className="grid grid-cols-4 gap-2 rounded-lg border bg-card px-3 py-3">
-          <PreviewStat value={tabs ? stats?.tabs : 0} label={t('labelTabs')} loading={loading && tabs} />
-          <PreviewStat value={tabs ? stats?.windows : 0} label={t('labelWindows')} loading={loading && tabs} />
-          <PreviewStat value={tabs ? stats?.groups : 0} label={t('labelGroups')} loading={loading && tabs} />
-          <PreviewStat value={bookmarks ? stats?.bookmarks : 0} label={t('labelBookmarks')} loading={loading && bookmarks} />
+          <PreviewStat value={tabs ? stats?.tabs : 0} label={tp('labelTabs', tabs ? (stats?.tabs ?? 0) : 0)} loading={loading && tabs} />
+          <PreviewStat value={tabs ? stats?.windows : 0} label={tp('labelWindows', tabs ? (stats?.windows ?? 0) : 0)} loading={loading && tabs} />
+          <PreviewStat value={tabs ? stats?.groups : 0} label={tp('labelGroups', tabs ? (stats?.groups ?? 0) : 0)} loading={loading && tabs} />
+          <PreviewStat value={bookmarks ? stats?.bookmarks : 0} label={tp('labelBookmarks', bookmarks ? (stats?.bookmarks ?? 0) : 0)} loading={loading && bookmarks} />
         </section>
 
         <FieldGroup className="gap-4">

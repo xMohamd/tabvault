@@ -66,3 +66,18 @@ describe('tp', () => {
     expect(tp('ghost', 2)).toBe('ghost_other');
   });
 });
+
+describe('count labels', () => {
+  it('have a singular for one and a plural for other counts', async () => {
+    const messages = (await import('../public/_locales/en/messages.json')).default as Record<string, { message: string }>;
+    for (const [one, other] of [['Tab', 'Tabs'], ['Window', 'Windows'], ['Group', 'Groups'], ['Bookmark', 'Bookmarks']]) {
+      expect(messages[`label${other}_one`]?.message).toBe(one);
+      expect(messages[`label${other}_other`]?.message).toBe(other);
+      expect(messages[`label${other}`]).toBeUndefined(); // no plural-blind key left behind
+    }
+    expect(messages.countTabs_one?.message).toBe('$COUNT$ tab');
+    expect(messages.countTabs_other?.message).toBe('$COUNT$ tabs');
+    expect(messages.countBookmarks_one?.message).toBe('$COUNT$ bookmark');
+    expect(messages.countBookmarks_other?.message).toBe('$COUNT$ bookmarks');
+  });
+});

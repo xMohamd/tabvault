@@ -185,6 +185,63 @@ if (backupFile) {
     ok(parsed.schemaVersion === '1.1' && parsed.windows.length >= 1, 'backup file is a valid v1.1 backup');
 }
 
+// --- 4b. Backup file location: a folder inside Downloads, then a picked folder -------------
+// Fires the real alarm after opening a page, so the run isn't skipped as "unchanged".
+const fireBackup = async (page) => {
+    const before = (await send({ type: 'SNAPSHOTS_LIST' })).snapshots.filter((x) => x.reason === 'scheduled').length;
+    await evaluate(`await chrome.tabs.create({ url: '${siteBase}/${page}.html', active: false }); await chrome.alarms.create('tabvault:auto-backup', { when: Date.now() + 1000, periodInMinutes: 60 }); return true;`);
+    return poll(async () => {
+        const list = (await send({ type: 'SNAPSHOTS_LIST' })).snapshots.filter((x) => x.reason === 'scheduled');
+        return list.length > before || list.length === 3 ? list.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] : null;
+    }, 20000, 500);
+};
+const sub = await send({ type: 'SCHEDULE_SET', settings: { downloadsFolder: ' My Tabs/../Auto? ' } });
+ok(sub.ok && sub.settings.downloadsFolder === 'My Tabs/Auto', `folder inside Downloads is sanitized: ${sub.settings?.downloadsFolder}`);
+const subRun = await fireBackup('loc-sub');
+ok(subRun?.file?.filename?.startsWith('My Tabs/Auto/'), `scheduled file goes to the chosen Downloads folder: ${subRun?.file?.filename}`);
+const subFile = await poll(() => {
+    try { return readdirSync(join(dlDir, 'My Tabs', 'Auto')).find((f) => /^tabs-backup-.*\.json$/.test(f)); } catch { return null; }
+}, 10000);
+ok(!!subFile, `file on disk in Downloads/My Tabs/Auto: ${subFile}`);
+
+// A picked folder: headless Chrome can't drive the native picker, but an Origin Private File
+// System folder is a real FileSystemDirectoryHandle, stored the way the popup stores a pick.
+const stored = await evaluate(`
+  const dir = await (await navigator.storage.getDirectory()).getDirectoryHandle('picked', { create: true });
+  const db = await new Promise((res, rej) => { const r = indexedDB.open('tabvault', 1); r.onupgradeneeded = () => r.result.createObjectStore('handles'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  await new Promise((res, rej) => { const tx = db.transaction('handles', 'readwrite'); tx.objectStore('handles').put({ id: 'e2e-folder', handle: dir }, 'backupFolder'); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+  db.close();
+  return true;`);
+ok(stored === true, 'picked folder stored in IndexedDB');
+const toFolder = await send({ type: 'SCHEDULE_SET', settings: { fileLocation: 'folder' } });
+ok(toFolder.ok && toFolder.settings.fileLocation === 'folder', 'SCHEDULE_SET fileLocation=folder');
+const folderRun = await fireBackup('loc-folder');
+ok(folderRun?.file?.folderId === 'e2e-folder' && folderRun.file.downloadId === undefined, `scheduled file written by the service worker into the picked folder: ${JSON.stringify(folderRun?.file)}`);
+const inFolder = await evaluate(`
+  const dir = await (await navigator.storage.getDirectory()).getDirectoryHandle('picked');
+  const out = [];
+  for await (const [name, handle] of dir.entries()) out.push({ name, json: JSON.parse(await (await handle.getFile()).text()) });
+  return out.map((f) => ({ name: f.name, schema: f.json.schemaVersion, windows: f.json.windows.length }));`);
+ok(inFolder.length === 1 && inFolder[0].name === folderRun?.file?.filename && inFolder[0].schema === '1.1' && inFolder[0].windows >= 1,
+    `picked folder holds a valid backup file: ${JSON.stringify(inFolder)}`);
+const lastRun = (await send({ type: 'SNAPSHOTS_LIST' })).lastRun;
+ok(lastRun?.ok && !lastRun.fileFallback && !lastRun.error, `last run clean: ${JSON.stringify(lastRun)}`);
+
+// The Backups tab shows the picked folder (opened the way "Choose folder…" opens it from the popup).
+{
+    const { result: { targetId: locTarget } } = await cdp('Target.createTarget', { url: `chrome-extension://${extId}/popup.html?view=tab&section=backups-auto#backups` });
+    const { result: { sessionId: locSession } } = await cdp('Target.attachToTarget', { targetId: locTarget, flatten: true });
+    const shown = await poll(async () => (await cdp('Runtime.evaluate', { expression: `document.getElementById('bk-location-path')?.textContent ?? ''`, returnByValue: true }, locSession)).result?.result?.value, 8000, 200);
+    ok(shown === 'picked', `Backups tab shows the picked folder: "${shown}"`);
+    if (process.env.SHOT_DIR) {
+        const shot = await cdp('Page.captureScreenshot', { format: 'png' }, locSession);
+        writeFileSync(join(process.env.SHOT_DIR, 'backup-location.png'), Buffer.from(shot.result.data, 'base64'));
+    }
+    await cdp('Target.closeTarget', { targetId: locTarget });
+}
+const back = await send({ type: 'SCHEDULE_SET', settings: { fileLocation: 'downloads', downloadsFolder: 'TabVault' } });
+ok(back.ok && back.settings.fileLocation === 'downloads' && back.settings.downloadsFolder === 'TabVault', 'back to the default location');
+
 // --- 5. Search across backups, select results, restore the selection -----------------------
 // Two snapshots with different tabs; one page ("srch-shared") is open in both.
 const openPage = (name) => evaluate(`return (await chrome.tabs.create({ url: '${siteBase}/${name}.html', active: false })).id;`);
@@ -352,6 +409,35 @@ ok(marks.one === 1 && marks.two === 0, `the ticked bookmark was created, the oth
     ok(await page.evalIn(`return !!document.getElementById('import-empty');`), 'the Import tab is back to its start');
     ok((await toastCount(page.evalIn)) === 0, 'and no notification');
     await cdp('Target.closeTarget', { targetId: page.tid });
+}
+
+// --- 9. Full-tab view keeps its width while a menu is open --------------------------------
+// Regression: Radix's scroll lock turned the centred body's margins into padding and
+// squeezed the app column to a strip whenever a select menu opened.
+{
+    const { result: { targetId: wideTarget } } = await cdp('Target.createTarget', { url: 'about:blank' });
+    const { result: { sessionId: wide } } = await cdp('Target.attachToTarget', { targetId: wideTarget, flatten: true });
+    await cdp('Emulation.setDeviceMetricsOverride', { width: 1340, height: 900, deviceScaleFactor: 1, mobile: false }, wide);
+    await cdp('Page.navigate', { url: `chrome-extension://${extId}/popup.html?view=tab#import` }, wide);
+    const evalWide = async (expr) => (await cdp('Runtime.evaluate', { expression: `(async () => { ${expr} })()`, awaitPromise: true, returnByValue: true }, wide)).result?.result?.value;
+    await poll(() => evalWide(`return !!document.getElementById('import-file');`));
+    await cdp('DOM.enable', {}, wide);
+    const { result: { root: wideDoc } } = await cdp('DOM.getDocument', {}, wide);
+    const { result: { nodeId: wideInput } } = await cdp('DOM.querySelector', { nodeId: wideDoc.nodeId, selector: '#import-file' }, wide);
+    await cdp('DOM.setFileInputFiles', { nodeId: wideInput, files: [pickFile] }, wide);
+    await poll(() => evalWide(`return !!document.querySelector('#tab-options button');`));
+    const columnWidth = () => evalWide(`return Math.round(document.getElementById('root').getBoundingClientRect().width);`);
+    const before = await columnWidth();
+    const at = await evalWide(`
+        document.querySelector('#tab-options button').click();
+        await new Promise((r) => setTimeout(r, 400));
+        const t = document.querySelector('#tab-options [role=combobox]'); t.scrollIntoView({ block: 'center' });
+        const b = t.getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2];`);
+    for (const type of ['mousePressed', 'mouseReleased']) await cdp('Input.dispatchMouseEvent', { type, x: at[0], y: at[1], button: 'left', clickCount: 1 }, wide);
+    const opened = await poll(() => evalWide(`return !!document.querySelector('[role=listbox]');`), 5000);
+    const during = await columnWidth();
+    ok(opened && before === 720 && during === before, `tab view column keeps its width with the Loading menu open (${before}px -> ${during}px)`);
+    await cdp('Target.closeTarget', { targetId: wideTarget });
 }
 
 const errors = (await send({ type: 'DIAGNOSTICS' })).report.logs.filter((l) => l.level === 'ERROR');

@@ -17,7 +17,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { send } from '@/lib/messaging';
-import { t } from '@/lib/i18n';
+import { t, tp } from '@/lib/i18n';
 import { BackupFormatError, normalizeBackup, type Backup, type NormalizeWarnings } from '@/lib/schema';
 import { FILE_SOURCE_ID, isInScope, resolveScope, type Scope } from '@/lib/search-scope';
 import { diffBackups, type BackupDiff } from '@/lib/snapshot-diff';
@@ -39,13 +39,14 @@ import {
   type SetStatus,
 } from '../shared';
 import { SettingsSection, SwitchRow } from './settings';
+import { BackupFileLocation, DEFAULT_DOWNLOADS_FOLDER, type LocationSettings } from './BackupFileLocation';
 import { SnapshotCompare } from './SnapshotCompare';
 import { BackupSearch, type LoadedFile } from './BackupSearch';
 import { SearchScopeMenu } from './SearchScopeMenu';
 
 const SEARCH_DEBOUNCE_MS = 250;
 
-const SAFETY_REASONS = new Set(['pre-replace', 'pre-import']);
+const SAFETY_REASONS = new Set(['pre-replace']);
 const FREQUENCY_KEYS: Record<ScheduleFrequency, string> = {
   hourly: 'freqHourlyShort',
   daily: 'freqDailyShort',
@@ -59,8 +60,18 @@ interface Form {
   keep: string;
   includeBookmarks: boolean;
   saveToFiles: boolean;
+  fileLocation: LocationSettings['fileLocation'];
+  downloadsFolder: string;
 }
-const DEFAULT_FORM: Form = { enabled: false, frequency: 'daily', keep: '7', includeBookmarks: true, saveToFiles: false };
+const DEFAULT_FORM: Form = {
+  enabled: false,
+  frequency: 'daily',
+  keep: '7',
+  includeBookmarks: true,
+  saveToFiles: false,
+  fileLocation: 'downloads',
+  downloadsFolder: DEFAULT_DOWNLOADS_FOLDER,
+};
 
 const toForm = (settings: Partial<ScheduleSettings>): Form => ({
   enabled: settings.enabled === true,
@@ -68,6 +79,8 @@ const toForm = (settings: Partial<ScheduleSettings>): Form => ({
   keep: String(settings.keep ?? 7),
   includeBookmarks: settings.includeBookmarks !== false,
   saveToFiles: settings.saveToFiles === true,
+  fileLocation: settings.fileLocation === 'folder' ? 'folder' : 'downloads',
+  downloadsFolder: settings.downloadsFolder || DEFAULT_DOWNLOADS_FOLDER,
 });
 
 /** The whole number the field holds, or null when it is not a valid keep count. */
@@ -83,6 +96,8 @@ function describeLastRun(lastRun: LastRun | null | undefined): Message {
   if (lastRun.skipped) return { text: t('lastRunSkipped', date) };
   // The backup was kept but its file could not be written.
   if (lastRun.error) return { text: t('lastRunFileWarning', [date, lastRun.error]), tone: TONE.warning };
+  // The file was saved, but to Downloads instead of the chosen folder.
+  if (lastRun.fileFallback) return { text: t('lastRunFolderFallback', date), tone: TONE.warning };
   return { text: t('lastRunOk', date), tone: TONE.success };
 }
 
@@ -97,9 +112,15 @@ interface Props {
   loadedFile: LoadedFile | null;
   /** Results picked in a search were ticked and should be offered in the Import tab. */
   onRestoreSearch: (data: Backup, count: number) => void;
+  isTabView: boolean;
+  /** Opens the full-tab view with the automatic-backup settings open (for the folder picker). */
+  openInTab: () => void;
+  /** Open the automatic-backup settings at first (the tab view was opened for them). */
+  settingsOpen?: boolean;
 }
 
-export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRestore, loadedFile, onRestoreSearch }: Props) {
+export function BackupsPanel(props: Props) {
+  const { active, browser, restoreRunning, setStatus, onRestore, loadedFile, onRestoreSearch } = props;
   /** What is typed, and the trimmed value the search runs for after a short pause. */
   const [searchText, setSearchText] = useState('');
   const [query, setQuery] = useState('');
@@ -141,15 +162,23 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
     setSnapshots(response.snapshots ?? []);
   }, [applySettings, setStatus]);
 
+  // Opened as a tab for the folder picker: bring the settings into view once the list is in.
+  const scrolledToSettings = useRef(false);
+  useEffect(() => {
+    if (!props.settingsOpen || snapshots === null || scrolledToSettings.current) return;
+    scrolledToSettings.current = true;
+    document.getElementById('bk-location')?.scrollIntoView({ block: 'center' });
+  }, [props.settingsOpen, snapshots]);
+
   // Snapshots live in the background: fetch them whenever the tab is shown.
   useEffect(() => {
     if (active) void refresh();
   }, [active, refresh]);
 
   /** Sends the settings; the background's answer becomes the new state. */
-  async function save(next: Form) {
+  async function save(next: Form): Promise<boolean> {
     const keep = parseKeep(next.keep);
-    if (keep === null) return;
+    if (keep === null) return false;
     const response = await send('SCHEDULE_SET', {
       settings: {
         enabled: next.enabled,
@@ -157,22 +186,25 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
         keep,
         includeBookmarks: next.includeBookmarks,
         saveToFiles: next.saveToFiles,
+        fileLocation: next.fileLocation,
+        downloadsFolder: next.downloadsFolder,
       },
     });
     if (response.ok) {
       applySettings(response.settings);
       setStatus(t('autoSaved'), TONE.success);
-    } else {
-      setForm((current) => ({ ...saved.current, keep: keepDirty.current ? current.keep : saved.current.keep }));
-      setStatus(t('autoSaveFailed', errorDetail(response)), TONE.error);
+      return true;
     }
+    setForm((current) => ({ ...saved.current, keep: keepDirty.current ? current.keep : saved.current.keep }));
+    setStatus(t('autoSaveFailed', errorDetail(response)), TONE.error);
+    return false;
   }
 
   /** Switches and frequency save at once; a half-typed keep count is not sent. */
-  function change(patch: Partial<Form>) {
+  function change(patch: Partial<Form>): Promise<boolean> {
     const next = { ...form, ...patch };
     setForm(next);
-    void save({ ...next, keep: parseKeep(next.keep) === null ? saved.current.keep : next.keep });
+    return save({ ...next, keep: parseKeep(next.keep) === null ? saved.current.keep : next.keep });
   }
 
   function editKeep(value: string) {
@@ -419,11 +451,12 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
 
         <SettingsSection
           id="backups-auto"
+          defaultOpen={props.settingsOpen}
           title={t('autoTitle')}
           summary={form.enabled ? t('autoSummaryOn', [t(FREQUENCY_KEYS[form.frequency]), fmt(keepSummary)]) : t('autoSummaryOff')}
         >
           <FieldGroup className="gap-4">
-            <SwitchRow id="bk-enabled" label={t('autoEnable')} checked={form.enabled} disabled={noAlarms} onChange={(enabled) => change({ enabled })} />
+            <SwitchRow id="bk-enabled" label={t('autoEnable')} checked={form.enabled} disabled={noAlarms} onChange={(enabled) => void change({ enabled })} />
             <Field>
               <FieldLabel id="bk-frequency-label">{t('autoFrequencyLabel')}</FieldLabel>
               <ToggleGroup
@@ -475,7 +508,7 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
               label={t('autoIncludeBookmarks')}
               checked={form.includeBookmarks}
               disabled={noAlarms}
-              onChange={(includeBookmarks) => change({ includeBookmarks })}
+              onChange={(includeBookmarks) => void change({ includeBookmarks })}
             />
             <SwitchRow
               id="bk-files"
@@ -483,8 +516,18 @@ export function BackupsPanel({ active, browser, restoreRunning, setStatus, onRes
               description={t('autoSaveFilesHint', fmt(keepSummary))}
               checked={form.saveToFiles}
               disabled={noAlarms}
-              onChange={(saveToFiles) => change({ saveToFiles })}
+              onChange={(saveToFiles) => void change({ saveToFiles })}
             />
+            {form.saveToFiles && (
+              <BackupFileLocation
+                value={{ fileLocation: form.fileLocation, downloadsFolder: form.downloadsFolder }}
+                disabled={noAlarms}
+                isTabView={props.isTabView}
+                openInTab={props.openInTab}
+                onChange={(patch) => change(patch)}
+                setStatus={setStatus}
+              />
+            )}
           </FieldGroup>
           {noAlarms && (
             <p id="bk-unavailable" className="text-sm text-warning">
@@ -542,7 +585,7 @@ function SnapshotRow({
   const size = formatSize(meta.bytes);
   const tabs = meta.stats?.tabs ?? 0;
   const bookmarks = meta.stats?.bookmarks ?? 0;
-  const details = [meta.scope?.title, `${fmt(tabs)} ${t('labelTabs').toLowerCase()}`, `${fmt(bookmarks)} ${t('labelBookmarks').toLowerCase()}`, size].filter(Boolean).join(' · ');
+  const details = [meta.scope?.title, tp('countTabs', tabs, fmt(tabs)), tp('countBookmarks', bookmarks, fmt(bookmarks)), size].filter(Boolean).join(' · ');
 
   // Delete needs a second click on the same button within a few seconds.
   const [armed, setArmed] = useState(false);
