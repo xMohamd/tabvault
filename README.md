@@ -89,6 +89,13 @@ assets-src/        icon sources
 CI runs the type check, tests, builds and lint on every push, plus the Chrome, Firefox and
 accessibility tests in real browsers.
 
+## Documentation
+
+The [user guide](docs/user-guide.md), [architecture](docs/architecture.md),
+[backup format](docs/backup-format.md), [testing](docs/testing.md), [privacy](docs/privacy.md)
+and design decisions are in [docs/](docs/README.md); project terms are defined in the
+[glossary](CONTEXT.md).
+
 ## About this project
 
 TabVault is a ground-up rewrite of
