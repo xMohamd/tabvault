@@ -8,16 +8,36 @@ Use `MAJOR.MINOR.PATCH`; stores reject a version that is not higher than the pub
 The extension version is separate from the [Backup format](backup-format.md) version.
 Change `SCHEMA_VERSION` only when the file layout changes.
 
-## Build
+## Release
+
+1. Bump `"version"` in `package.json`, commit, and push to `main`.
+2. Tag that commit and push the tag:
+
+   ```bash
+   git tag v1.1.0
+   git push origin v1.1.0
+   ```
+
+The **Release** workflow (`.github/workflows/release.yml`) then:
+
+1. checks that the tag matches `package.json` (otherwise it stops with an error);
+2. runs the full CI, including the real-browser tests;
+3. builds `tabvault-<version>-chrome.zip`, `-firefox.zip` and `-sources.zip`;
+4. creates a GitHub Release with the three zips and notes grouped by commit type
+   (`.github/release-notes.sh`).
+
+A tag with a suffix, such as `v1.1.0-beta.1`, becomes a pre-release. If the workflow fails,
+fix the problem, delete the tag (`git push origin :v1.1.0 && git tag -d v1.1.0`) and tag again.
+
+Uploading to the stores is manual for now, using the zips attached to the release.
+
+To build the zips by hand instead:
 
 ```bash
 pnpm check           # type check, tests, both builds, Firefox lint
 pnpm zip             # .output/tabvault-<version>-chrome.zip
 pnpm zip:firefox     # .output/tabvault-<version>-firefox.zip and -sources.zip
 ```
-
-Run the real-browser tests too (see [testing](testing.md)), or rely on a green CI run for the
-commit you release. CI also uploads both zips as artifacts.
 
 ## Chrome Web Store (and Edge Add-ons)
 
@@ -37,12 +57,3 @@ commit you release. CI also uploads both zips as artifacts.
 3. The add-on ID is fixed in `wxt.config.ts` (`browser_specific_settings.gecko.id`). Never
    change it after the first upload: AMO treats a new ID as a different add-on.
 4. Data collection is declared in the manifest as none (`data_collection_permissions`).
-
-## After release
-
-Tag the released commit, so the exact code of every version stays easy to find:
-
-```bash
-git tag v<version>
-git push origin v<version>
-```

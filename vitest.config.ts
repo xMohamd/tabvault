@@ -7,5 +7,8 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     // Library modules keep per-context state (logger, detection cache, scheduler queue).
     isolate: true,
+    // Popup tests render the real React UI; CI runners are slower than a dev machine.
+    testTimeout: 15_000,
+    hookTimeout: 20_000,
   },
 });

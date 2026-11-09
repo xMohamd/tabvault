@@ -26,7 +26,7 @@ doesn't know yet, add the rule to the fake rather than loosening the test.
 
 ```bash
 # Chrome: needs Chrome for Testing or Chromium. Branded Chrome ignores --load-extension.
-npx @puppeteer/browsers install chrome@stable
+pnpm dlx @puppeteer/browsers@3.2.6 install chrome@143.0.7499.169 --path ~/.cache/browsers
 CHROME=/path/to/chrome pnpm test:e2e
 CHROME=/path/to/chrome pnpm test:e2e:features
 CHROME=/path/to/chrome pnpm test:a11y
@@ -58,12 +58,48 @@ the script exits non-zero if any check failed.
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every push and pull request:
+`.github/workflows/ci.yml` runs on pushes to `main`, on pull requests, by hand from the
+Actions tab, and as part of every release:
 
 1. **check:** type check, unit and component tests, both builds as zips (uploaded as
    artifacts) and the Firefox lint.
-2. **e2e:** downloads Chrome for Testing and Firefox, then runs the smoke test, the feature
-   checks, the accessibility audit and the Firefox test.
+2. **e2e:** installs pinned versions of Chrome for Testing and Firefox (cached between runs),
+   builds once, then runs the smoke test, the feature checks, the accessibility audit and the
+   Firefox test. Screenshots are uploaded if it fails.
+
+The browser versions are pinned in `ci.yml` (`CHROME_VERSION`, `FIREFOX_VERSION`) so a browser
+update can't break CI on its own. Raise them on purpose from time to time.
 
 If unit tests time out locally only, check the machine's load first: under heavy load the
 component tests can exceed their timeouts without anything being wrong.
+
+## Running CI locally
+
+The quickest way is to run the same commands as CI:
+
+```bash
+pnpm check                                   # the "check" job
+pnpm build && pnpm build:firefox             # the "e2e" job, with CHROME and FIREFOX set
+CHROME=/path/to/chrome NO_SANDBOX=1 node tests/e2e/smoke.mjs
+CHROME=/path/to/chrome NO_SANDBOX=1 node tests/e2e/features.mjs
+CHROME=/path/to/chrome NO_SANDBOX=1 node tests/e2e/a11y.mjs
+FIREFOX=/path/to/firefox node tests/e2e/firefox.mjs
+```
+
+The same browser versions as CI:
+
+```bash
+pnpm dlx @puppeteer/browsers@3.2.6 install chrome@143.0.7499.169 --path ~/.cache/browsers
+pnpm dlx @puppeteer/browsers@3.2.6 install firefox@stable_159.0 --path ~/.cache/browsers
+```
+
+To run the workflow files themselves, use [act](https://github.com/nektos/act) (needs Docker):
+
+```bash
+act -l                                          # list the jobs
+act pull_request -j check -P ubuntu-latest=catthehacker/ubuntu:act-latest
+actionlint                                      # check the workflow files for mistakes
+```
+
+The release workflow publishes to GitHub, so don't run it with act; test its pieces instead,
+for example the notes: `git tag v0.0.0-test && .github/release-notes.sh v0.0.0-test; git tag -d v0.0.0-test`.

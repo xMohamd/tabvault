@@ -2,7 +2,7 @@
  * Where automatic backup files go: a folder inside Downloads, or a folder the user
  * picked (File System Access). The picked folder is an in-memory fake here.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as m from '../src/lib/backup-scheduler';
 import type { ScheduleSettings } from '../src/lib/types';
 import { createFakeBrowser } from './helpers/fake-browser';
@@ -28,7 +28,8 @@ vi.mock('../src/lib/backup-folder', () => ({
 }));
 
 const fb = createFakeBrowser();
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// File names have one-second resolution: move a fake clock forward instead of waiting.
+const nextSecond = () => vi.setSystemTime(Date.now() + 1100);
 const must = <T>(v: T | null | undefined): T => {
   if (v == null) throw new Error('expected a value');
   return v;
@@ -87,6 +88,9 @@ describe('backup file location settings', () => {
 });
 
 describe('writing backup files', () => {
+  beforeEach(() => vi.useFakeTimers({ toFake: ['Date'] }));
+  afterEach(() => vi.useRealTimers());
+
   it('uses the chosen folder inside Downloads', async () => {
     await reset({ fileLocation: 'downloads', downloadsFolder: 'Backups/Tabs' });
     const meta = await run();
@@ -123,9 +127,9 @@ describe('writing backup files', () => {
   it('pruning deletes old files from the picked folder', async () => {
     await reset({ fileLocation: 'folder' });
     const first = await run();
-    await sleep(1100); // names have one-second resolution
+    nextSecond();
     await run();
-    await sleep(1100);
+    nextSecond();
     await run(); // keep=2: the first is pruned
     expect(folderState.files.has(must(first.file).filename)).toBe(false);
     expect(folderState.files.size).toBe(2);
@@ -136,9 +140,9 @@ describe('writing backup files', () => {
     await reset({ fileLocation: 'folder' });
     const first = await run();
     folderState.folder = { id: 'f2', handle: { name: 'Elsewhere' } };
-    await sleep(1100);
+    nextSecond();
     await run();
-    await sleep(1100);
+    nextSecond();
     await run();
     expect(folderState.files.has(must(first.file).filename)).toBe(true);
   });
