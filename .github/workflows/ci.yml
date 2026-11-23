@@ -39,6 +39,9 @@ jobs:
         with:
           name: extension-zips
           path: .output/*.zip
+          # .output starts with a dot, and hidden folders are skipped by default.
+          include-hidden-files: true
+          if-no-files-found: error
 
   e2e:
     # Real browsers: Chrome smoke test, feature checks, accessibility audit (axe) and real Firefox.
