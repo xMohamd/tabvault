@@ -50,16 +50,52 @@ available APIs at runtime.
 
 ## Installation
 
+TabVault isn't in the Chrome Web Store or Firefox Add-ons yet. Until then, install it from a
+release or build it yourself.
+
+### From a release
+
+Download the zip for your browser from the [latest release](https://github.com/xMohamd/tabvault/releases/latest):
+`tabvault-<version>-chrome.zip` for Chromium browsers, `tabvault-<version>-firefox.zip` for Firefox.
+
+**Chrome, Edge, Brave, Opera, Vivaldi**
+
+1. Unzip the file into a folder you'll keep (the browser loads the extension from it).
+2. Open the extensions page: `chrome://extensions` (Edge: `edge://extensions`, Brave:
+   `brave://extensions`, Opera: `opera://extensions`, Vivaldi: `vivaldi://extensions`).
+3. Turn on **Developer mode**.
+4. Click **Load unpacked** and select the unzipped folder.
+5. Pin TabVault from the extensions menu (puzzle icon) to keep it in the toolbar.
+
+To update, unzip the new version over the **same folder** and click **Reload** on the extension.
+Snapshots and settings are kept (the browser identifies an unpacked extension by its folder,
+so loading a different folder would start fresh).
+
+**Firefox**
+
+1. Open `about:debugging#/runtime/this-firefox`.
+2. Click **Load Temporary Add-on** and select the downloaded zip (no need to unzip it).
+
+Firefox removes temporary add-ons when it closes, and it only installs unsigned add-ons
+permanently in Firefox Developer Edition or Nightly (set `xpinstall.signatures.required` to
+`false` in `about:config`, rename the zip to `.xpi`, and install it from `about:addons` → ⚙ →
+**Install Add-on From File**). A permanent install in regular Firefox will come with the
+Firefox Add-ons listing.
+
+### From source
+
+Requires Node.js 20+ and pnpm.
+
 ```bash
+git clone https://github.com/xMohamd/tabvault.git
+cd tabvault
 pnpm install
 pnpm build           # Chromium browsers -> .output/chrome-mv3
 pnpm build:firefox   # Firefox           -> .output/firefox-mv3
 ```
 
-- **Chromium:** open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**
-  and select `.output/chrome-mv3`.
-- **Firefox:** open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on**
-  and select `.output/firefox-mv3/manifest.json`.
+Then load `.output/chrome-mv3` with **Load unpacked** as above, or in Firefox choose
+`.output/firefox-mv3/manifest.json` with **Load Temporary Add-on**.
 
 ## Development
 
