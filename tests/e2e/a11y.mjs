@@ -520,11 +520,27 @@ async function tabViewStates(theme) {
 
 async function lazyStates(theme) {
     console.log(`Lazy page [${theme}]`);
-    // Background tab: the page navigates to its target the first time it becomes visible, which would audit example.com instead.
-    const p = await openTarget(`${origin}/lazy.html?url=${encodeURIComponent('https://example.com/')}&title=Example`, true);
+    // The page opens its target as soon as the tab is visible, and whether a background tab counts as
+    // visible differs between machines. So the target answers "204 No Content": browsers ignore such a
+    // navigation and the placeholder stays, whatever the visibility. (Holding the request unanswered
+    // instead blocks every later command to the tab.)
+    const p = await openTarget('about:blank', true);
+    const answer204 = (e) => {
+        const m = JSON.parse(e.data);
+        if (m.method === 'Fetch.requestPaused' && m.sessionId === p.sessionId) {
+            void cdp('Fetch.fulfillRequest', { requestId: m.params.requestId, responseCode: 204 }, p.sessionId);
+        }
+    };
+    ws.addEventListener('message', answer204);
+    await cdp('Fetch.enable', { patterns: [{ urlPattern: 'https://example.com/*' }] }, p.sessionId);
+    await cdp('Page.navigate', { url: `${origin}/lazy.html?url=${encodeURIComponent('https://example.com/')}&title=Example` }, p.sessionId);
+    await p.waitFor(`location.pathname === '/lazy.html' && document.readyState === 'complete'`);
     await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: theme }] }, p.sessionId);
     await sleep(300);
+    const where = await p.eval(`return location.pathname;`);
+    check(`placeholder page itself is audited [${theme}]`, where === '/lazy.html', where);
     await audit(p, 'Lazy page', theme);
+    ws.removeEventListener('message', answer204);
     await cdp('Target.closeTarget', { targetId: p.targetId });
 }
 
