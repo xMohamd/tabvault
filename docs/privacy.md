@@ -45,4 +45,4 @@ TabVault doesn't request access to the content of websites, and it doesn't run i
 
 ## Contact
 
-Questions or concerns: open an issue in this project's repository.
+Questions or concerns: [open an issue](https://github.com/xMohamd/tabvault/issues) on GitHub.

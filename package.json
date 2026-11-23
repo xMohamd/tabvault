@@ -53,6 +53,15 @@
     "wxt": "^0.21.3"
   },
   "license": "MIT",
+  "author": "Mohamed Hossny (https://github.com/xMohamd)",
+  "homepage": "https://github.com/xMohamd/tabvault#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xMohamd/tabvault.git"
+  },
+  "bugs": {
+    "url": "https://github.com/xMohamd/tabvault/issues"
+  },
   "engines": {
     "node": ">=20"
   },
